@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+}
+
+enum GameStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AttemptStatus {
+  STARTED
+  COMPLETED
+  INVALID
+  ABANDONED
+}
+
+enum RankDirection {
+  ASC
+  DESC
+}
+
+enum LeaderboardScope {
+  GLOBAL
+  DAILY
+  WEEKLY
+  FRIENDS
+}
+
+enum EntryPolicy {
+  BEST_PER_USER
+  ALL_ATTEMPTS
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  username     String       @unique
+  passwordHash String
+  avatarUrl    String?
+  role         UserRole     @default(USER)
+  status       UserStatus   @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  attempts         GameAttempt[]
+  entries          LeaderboardEntry[]
+  sessions         Session[]
+  lifeSubmissions  LifeRegionSubmission[]
+}
+
+model Session {
+  id                   String    @id @default(cuid())
+  userId               String
+  refreshTokenHash     String    @unique
+  refreshTokenFamilyId String
+  userAgent            String?
+  ipAddress            String?
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  revokedReason        String?
+  replacedBySessionId  String?
+  lastUsedAt           DateTime?
+  createdAt            DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshTokenFamilyId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model Game {
+  id               String     @id @default(cuid())
+  slug             String     @unique
+  title            String
+  subtitle         String?
+  description      String
+  source           String?
+  coverUrl         String?
+  status           GameStatus @default(DRAFT)
+  difficultyLevels Json
+  metadata         Json       @default("{}")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  attempts     GameAttempt[]
+  leaderboards LeaderboardDefinition[]
+  lifePuzzles  LifePuzzle[]
+}
+
+model GameAttempt {
+  id            String        @id @default(cuid())
+  userId        String
+  gameId        String
+  difficultyKey String
+  status        AttemptStatus @default(STARTED)
+  seed          String
+  initialState  Json
+  finalState    Json?
+  moveTrace     Json?
+  metrics       Json          @default("{}")
+  metadata      Json          @default("{}")
+  rankValue     Decimal?
+  startedAt     DateTime      @default(now())
+  completedAt   DateTime?
+  invalidReason String?
+  createdAt     DateTime      @default(now())
+
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game           Game                  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  entries        LeaderboardEntry[]
+  lifePuzzle     LifePuzzle?           @relation(fields: [lifePuzzleId], references: [id])
+  lifePuzzleId   String?
+  lifeSubmissions LifeRegionSubmission[]
+
+  @@index([userId, gameId, difficultyKey, status])
+  @@index([gameId, difficultyKey, status, rankValue])
+}
+
+model LeaderboardDefinition {
+  id            String            @id @default(cuid())
+  gameId        String
+  slug          String            @unique
+  name          String
+  scope         LeaderboardScope  @default(GLOBAL)
+  difficultyKey String?
+  rankMetric    String
+  rankDirection RankDirection
+  tieBreakers   Json              @default("[]")
+  entryPolicy   EntryPolicy       @default(BEST_PER_USER)
+  metadata      Json              @default("{}")
+  createdAt     DateTime          @default(now())
+
+  game    Game               @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  entries LeaderboardEntry[]
+
+  @@index([gameId, difficultyKey])
+}
+
+model LeaderboardEntry {
+  id                      String   @id @default(cuid())
+  leaderboardDefinitionId String
+  userId                  String
+  bestAttemptId           String
+  rankValue               Decimal
+  metrics                 Json     @default("{}")
+  updatedAt               DateTime @updatedAt
+
+  leaderboardDefinition LeaderboardDefinition @relation(fields: [leaderboardDefinitionId], references: [id], onDelete: Cascade)
+  user                  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bestAttempt           GameAttempt          @relation(fields: [bestAttemptId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardDefinitionId, userId])
+  @@index([leaderboardDefinitionId, rankValue])
+}
+
+model LifePuzzle {
+  id               String   @id @default(cuid())
+  gameId           String
+  difficultyKey    String
+  width            Int      @default(120)
+  height           Int      @default(15)
+  boundary         Json
+  initialState     Json
+  stableState      Json
+  targetRegionIds  Json
+  targetAnswers    Json
+  stableGeneration Int
+  status           String   @default("ACTIVE")
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  game     Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  attempts GameAttempt[]
+
+  @@index([difficultyKey, status])
+}
+
+model LifeRegionSubmission {
+  id          String   @id @default(cuid())
+  attemptId   String
+  userId      String
+  regionId    Int
+  aliveCells  Json
+  correct     Boolean
+  submittedAt DateTime @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@index([userId])
+  @@index([attemptId, regionId])
+}

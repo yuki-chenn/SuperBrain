@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "./dist",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@brain-games/shared": ["../../packages/shared/src"],
+      "@brain-games/shared/*": ["../../packages/shared/src/*"],
+      "@brain-games/game-engine": ["../../packages/game-engine/src"],
+      "@brain-games/game-engine/*": ["../../packages/game-engine/src/*"]
+    }
+  },
+  "include": ["src", "vite-env.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}

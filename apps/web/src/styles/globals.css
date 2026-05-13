@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+/* ============================================
+   SuperBrain Design Token System
+   ============================================ */
+
+:root {
+  /* Background */
+  --sb-bg: #f7f8fb;
+  --sb-bg-elevated: #ffffff;
+  --sb-bg-muted: #f0f2f7;
+
+  /* Text */
+  --sb-text-primary: #101320;
+  --sb-text-secondary: #596174;
+  --sb-text-muted: #8b93a7;
+
+  /* Border */
+  --sb-border: #e3e7ef;
+  --sb-border-strong: #cfd6e4;
+
+  /* Primary */
+  --sb-primary: #3b5bff;
+  --sb-primary-hover: #2948e8;
+  --sb-primary-soft: #eef2ff;
+
+  /* Accent */
+  --sb-accent: #7c3aed;
+  --sb-accent-soft: #f3ecff;
+
+  /* Semantic */
+  --sb-success: #12a150;
+  --sb-warning: #d97706;
+  --sb-danger: #dc2626;
+
+  /* Shadows */
+  --sb-card-shadow: 0 12px 32px rgba(16, 19, 32, 0.08);
+  --sb-card-shadow-hover: 0 20px 48px rgba(16, 19, 32, 0.12);
+
+  /* Radius */
+  --sb-radius-card: 24px;
+  --sb-radius-button: 14px;
+  --sb-radius-input: 12px;
+  --sb-radius-tile: 16px;
+  --sb-radius-modal: 24px;
+
+  /* Transition */
+  --sb-transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease;
+
+  /* Legacy compat */
+  --color-primary: var(--sb-primary);
+  --color-primary-hover: var(--sb-primary-hover);
+  --color-bg: var(--sb-bg);
+  --color-bg-card: var(--sb-bg-elevated);
+  --color-bg-input: var(--sb-bg-muted);
+  --color-text: var(--sb-text-primary);
+  --color-text-muted: var(--sb-text-muted);
+  --color-border: var(--sb-border);
+  --color-success: var(--sb-success);
+  --color-error: var(--sb-danger);
+}
+
+[data-theme="dark"] {
+  --sb-bg: #080a12;
+  --sb-bg-elevated: #111522;
+  --sb-bg-muted: #171b2a;
+
+  --sb-text-primary: #f4f7ff;
+  --sb-text-secondary: #a8b0c2;
+  --sb-text-muted: #6f778a;
+
+  --sb-border: #242b3d;
+  --sb-border-strong: #343d55;
+
+  --sb-primary: #7c8cff;
+  --sb-primary-hover: #9aa6ff;
+  --sb-primary-soft: rgba(124, 140, 255, 0.12);
+
+  --sb-accent: #a78bfa;
+  --sb-accent-soft: rgba(167, 139, 250, 0.14);
+
+  --sb-card-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+  --sb-card-shadow-hover: 0 24px 64px rgba(0, 0, 0, 0.42);
+}
+
+[data-theme="neon"] {
+  --sb-bg: #050711;
+  --sb-bg-elevated: #0c1020;
+  --sb-bg-muted: #11172b;
+
+  --sb-text-primary: #f8fbff;
+  --sb-text-secondary: #aab7d4;
+  --sb-text-muted: #6d7895;
+
+  --sb-border: rgba(107, 124, 255, 0.24);
+  --sb-border-strong: rgba(107, 124, 255, 0.44);
+
+  --sb-primary: #00d4ff;
+  --sb-primary-hover: #58e4ff;
+  --sb-primary-soft: rgba(0, 212, 255, 0.13);
+
+  --sb-accent: #b06cff;
+  --sb-accent-soft: rgba(176, 108, 255, 0.16);
+
+  --sb-card-shadow: 0 20px 56px rgba(0, 212, 255, 0.08);
+  --sb-card-shadow-hover: 0 24px 72px rgba(176, 108, 255, 0.14);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    Inter,
+    "Noto Sans SC",
+    "PingFang SC",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background-color: var(--sb-bg);
+  color: var(--sb-text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sb-border-strong);
+  border-radius: 3px;
+}
