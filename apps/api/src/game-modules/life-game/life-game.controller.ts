@@ -7,9 +7,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { LifeGameService } from './life-game.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { ZodPipe } from '../common/pipes/zod.pipe';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { SubmitLifeRegionRequestSchema } from '@brain-games/shared';
 
 @Controller('games/life-game/attempts')

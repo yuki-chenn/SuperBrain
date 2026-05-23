@@ -10,6 +10,7 @@ import { ProtectedRoute, PublicOnlyRoute } from './routes/protected-route';
 import SlidingPuzzlePage from '../features/games/sliding-puzzle/SlidingPuzzlePage';
 import LifeGamePlayPage from '../features/games/life-game/LifeGamePlayPage';
 import LifePracticeRoom from '../features/games/life-game/LifePracticeRoom';
+import PreciseCharacterPlayPage from '../features/games/precise-character-building/PreciseCharacterPlayPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -91,6 +92,16 @@ const lifePracticeRoute = createRoute({
   ),
 });
 
+const pcbPlayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/precise-character-building/play',
+  component: () => (
+    <ProtectedRoute>
+      <PreciseCharacterPlayPage />
+    </ProtectedRoute>
+  ),
+});
+
 const leaderboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/games/$slug/leaderboards',
@@ -110,6 +121,7 @@ const routeTree = rootRoute.addChildren([
   slidingPuzzleRoute,
   lifeGameRoute,
   lifePracticeRoute,
+  pcbPlayRoute,
   leaderboardRoute,
 ]);
 

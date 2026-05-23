@@ -31,6 +31,7 @@ export default function SlidingPuzzlePage() {
     status,
     moves,
     elapsedMs,
+    maxDurationMs,
     isRunning,
     countdownMs,
     difficultyKey,
@@ -40,6 +41,7 @@ export default function SlidingPuzzlePage() {
     reset,
     tick,
     countdownTick,
+    abandonGame,
   } = useSlidingPuzzleStore();
 
   // Cleanup on unmount
@@ -86,33 +88,44 @@ export default function SlidingPuzzlePage() {
   }, [reset]);
 
   const handleDifficultyChange = useCallback((key: string) => {
+    const canChangeDifficulty = status === 'idle' || status === 'abandoned';
+    if (!canChangeDifficulty) return;
     setSelectedDifficulty(key);
-    // If game is in progress, reset and go back to idle
-    if (status !== 'idle') {
-      reset();
-    }
-  }, [status, reset]);
+  }, [status]);
 
   const difficultyLabel = SLIDING_PUZZLE_DIFFICULTIES.find((d) => d.key === selectedDifficulty)?.label || '标准';
+  const selectedMaxDurationMs =
+    SLIDING_PUZZLE_DIFFICULTIES.find((d) => d.key === selectedDifficulty)?.maxDurationMs ?? 0;
   const countdownSeconds = Math.ceil(countdownMs / 1000);
-  const isGameActive = status === 'loading' || status === 'countdown' || status === 'playing' || status === 'completed' || status === 'submitting' || status === 'submitted';
+  const isGameActive =
+    status === 'loading' ||
+    status === 'countdown' ||
+    status === 'playing' ||
+    status === 'completed' ||
+    status === 'submitting' ||
+    status === 'submitted';
+  const canChangeDifficulty = status === 'idle' || status === 'abandoned' || status === 'timeout';
 
   const infoPanel = (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-[var(--sb-text-primary)] mb-1">数字华容道</h1>
         <p className="text-xs text-[var(--sb-text-muted)]">{difficultyLabel}</p>
+        <p className="text-xs text-[var(--sb-text-muted)] mt-1">
+          最长时长：{formatDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
+        </p>
       </div>
 
       {/* HUD - show when game is active */}
       {isGameActive && (
         <GameHud
           items={[
-            { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
-            { label: '步数', value: moves, emphasize: true },
-          ]}
-        />
-      )}
+              { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
+              { label: '步数', value: moves, emphasize: true },
+              { label: '上限', value: formatDuration(maxDurationMs || selectedMaxDurationMs) },
+            ]}
+          />
+        )}
 
       {/* Countdown display */}
       {status === 'countdown' && (
@@ -124,15 +137,17 @@ export default function SlidingPuzzlePage() {
         </div>
       )}
 
-      {/* Difficulty selector - always visible */}
-      <div>
-        <h3 className="text-xs font-semibold text-[var(--sb-text-muted)] mb-2">难度</h3>
-        <DifficultySelector
-          levels={SLIDING_PUZZLE_DIFFICULTIES.map((d) => ({ key: d.key, label: d.label }))}
-          value={selectedDifficulty}
-          onChange={handleDifficultyChange}
-        />
-      </div>
+      {/* Difficulty selector */}
+      {canChangeDifficulty && (
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--sb-text-muted)] mb-2">难度</h3>
+          <DifficultySelector
+            levels={SLIDING_PUZZLE_DIFFICULTIES.map((d) => ({ key: d.key, label: d.label }))}
+            value={selectedDifficulty}
+            onChange={handleDifficultyChange}
+          />
+        </div>
+      )}
 
       {/* Countdown toggle - always visible */}
       <label className="flex items-center gap-2 cursor-pointer">
@@ -147,11 +162,20 @@ export default function SlidingPuzzlePage() {
 
       {/* Control buttons */}
       <GameControlBar
-        status={status}
+        status={status === 'abandoned' || status === 'timeout' ? 'idle' : status}
         onStart={handleStart}
         onRestart={handleRestart}
         isAuthenticated={isAuthenticated}
       />
+
+      {(status === 'countdown' || status === 'playing' || status === 'submitting') && (
+        <button
+          className="w-full py-2 text-xs text-gray-400 hover:text-red-400 transition-colors"
+          onClick={abandonGame}
+        >
+          放弃挑战
+        </button>
+      )}
 
       {status === 'submitting' && (
         <p className="text-xs text-[var(--sb-text-muted)]">提交成绩中...</p>

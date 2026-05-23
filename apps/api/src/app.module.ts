@@ -4,7 +4,8 @@ import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { GamesModule } from './games/games.module';
-import { LifeGameModule } from './life-game/life-game.module';
+import { LifeGameModule } from './game-modules/life-game/life-game.module';
+import { PreciseCharacterGameModule } from './game-modules/precise-character-building/precise-character-game.module';
 import { AttemptsModule } from './attempts/attempts.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
 
@@ -16,6 +17,7 @@ import { LeaderboardsModule } from './leaderboards/leaderboards.module';
     UsersModule,
     GamesModule,
     LifeGameModule,
+    PreciseCharacterGameModule,
     AttemptsModule,
     LeaderboardsModule,
   ],

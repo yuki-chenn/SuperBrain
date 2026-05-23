@@ -5,8 +5,8 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { LeaderboardsService } from '../leaderboards/leaderboards.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { LeaderboardsService } from '../../leaderboards/leaderboards.service';
 import {
   validateLocalCells,
   isSameLocalCellSet,
@@ -14,6 +14,8 @@ import {
   LIFE_MAX_ERROR_COUNT,
 } from '@brain-games/game-engine';
 import type { LocalCellCoord } from '@brain-games/game-engine';
+import { getLifeGameMaxDurationMs } from '@brain-games/shared';
+import { isAttemptTimedOut } from '../../games/attempt-timeout';
 
 interface LifePuzzleData {
   targetRegionIds: number[];
@@ -58,6 +60,18 @@ export class LifeGameService {
     if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
     if (attempt.status !== 'STARTED') {
       throw new ConflictException('Attempt already finished');
+    }
+    const maxDurationMs = getLifeGameMaxDurationMs(attempt.difficultyKey);
+    if (isAttemptTimedOut(attempt.startedAt, maxDurationMs)) {
+      await this.prisma.gameAttempt.update({
+        where: { id: attemptId },
+        data: {
+          status: 'INVALID',
+          invalidReason: 'TIMEOUT',
+          completedAt: new Date(),
+        },
+      });
+      throw new ConflictException('Attempt timed out');
     }
 
     const metadata = attempt.metadata as unknown as AttemptMetadata;
@@ -217,6 +231,50 @@ export class LifeGameService {
     if (!attempt) throw new NotFoundException('Attempt not found');
     if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
 
+    const maxDurationMs = getLifeGameMaxDurationMs(attempt.difficultyKey);
+    if (attempt.status === 'STARTED' && isAttemptTimedOut(attempt.startedAt, maxDurationMs)) {
+      const timedOut = await this.prisma.gameAttempt.update({
+        where: { id: attemptId },
+        data: {
+          status: 'INVALID',
+          invalidReason: 'TIMEOUT',
+          completedAt: new Date(),
+        },
+        include: {
+          lifePuzzle: true,
+          lifeSubmissions: {
+            select: {
+              regionId: true,
+              submittedAt: true,
+              correct: true,
+            },
+            orderBy: { submittedAt: 'asc' },
+          },
+        },
+      });
+      return {
+        attemptId: timedOut.id,
+        status: timedOut.status,
+        difficultyKey: timedOut.difficultyKey,
+        maxDurationMs,
+        width: timedOut.lifePuzzle?.width || 120,
+        height: timedOut.lifePuzzle?.height || 15,
+        boundary: (timedOut.metadata as unknown as AttemptMetadata).boundary,
+        initialState: timedOut.initialState,
+        targetRegionIds: (timedOut.metadata as unknown as AttemptMetadata).targetRegionIds,
+        correctRegionIds: (timedOut.metadata as unknown as AttemptMetadata).correctRegionIds || [],
+        errorCount: (timedOut.metadata as unknown as AttemptMetadata).errorCount || 0,
+        startedAt: timedOut.startedAt.toISOString(),
+        completedAt: timedOut.completedAt?.toISOString(),
+        submissions: timedOut.lifeSubmissions.map((s) => ({
+          regionId: s.regionId,
+          submittedAt: s.submittedAt.toISOString(),
+          correct: s.correct,
+        })),
+        metrics: undefined,
+      };
+    }
+
     const metadata = attempt.metadata as unknown as AttemptMetadata;
     const puzzle = attempt.lifePuzzle;
 
@@ -224,6 +282,7 @@ export class LifeGameService {
       attemptId: attempt.id,
       status: attempt.status,
       difficultyKey: attempt.difficultyKey,
+      maxDurationMs,
       width: puzzle?.width || 120,
       height: puzzle?.height || 15,
       boundary: metadata.boundary,
@@ -288,5 +347,36 @@ export class LifeGameService {
     });
 
     return { success: true };
+  }
+
+  async timeoutAttempt(userId: string, attemptId: string) {
+    const attempt = await this.prisma.gameAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
+    if (attempt.status === 'INVALID' && attempt.invalidReason === 'TIMEOUT') {
+      return { success: true, status: 'INVALID', reason: 'TIMEOUT' as const };
+    }
+    if (attempt.status !== 'STARTED') {
+      throw new ConflictException('Attempt already finished');
+    }
+
+    const maxDurationMs = getLifeGameMaxDurationMs(attempt.difficultyKey);
+    if (!isAttemptTimedOut(attempt.startedAt, maxDurationMs)) {
+      throw new BadRequestException('Attempt has not reached timeout yet');
+    }
+
+    await this.prisma.gameAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: 'INVALID',
+        invalidReason: 'TIMEOUT',
+        completedAt: new Date(),
+      },
+    });
+
+    return { success: true, status: 'INVALID', reason: 'TIMEOUT' as const };
   }
 }

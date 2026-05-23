@@ -5,9 +5,16 @@ interface GameControlBarProps {
   onStart: () => void;
   onRestart: () => void;
   isAuthenticated?: boolean;
+  restartLabel?: string;
 }
 
-export function GameControlBar({ status, onStart, onRestart, isAuthenticated = true }: GameControlBarProps) {
+export function GameControlBar({
+  status,
+  onStart,
+  onRestart,
+  isAuthenticated = true,
+  restartLabel = '重新开始',
+}: GameControlBarProps) {
   if (status === 'idle') {
     return (
       <Button
@@ -32,7 +39,7 @@ export function GameControlBar({ status, onStart, onRestart, isAuthenticated = t
   if (status === 'countdown' || status === 'playing' || status === 'submitting') {
     return (
       <Button variant="secondary" size="md" onClick={onRestart} className="w-full">
-        重新开始
+        {restartLabel}
       </Button>
     );
   }

@@ -1,10 +1,25 @@
 import { create } from 'zustand';
 import { isSolved } from '@brain-games/game-engine';
 import type { FinishAttemptResponse } from '@brain-games/shared';
-import { startAttemptApi, startPlayingApi, finishAttemptApi } from '../api';
+import {
+  startAttemptApi,
+  startPlayingApi,
+  finishAttemptApi,
+  abandonAttemptApi,
+  timeoutAttemptApi,
+} from '../api';
 import { queryClient } from '../../../lib/query-client';
 
-type Status = 'idle' | 'loading' | 'countdown' | 'playing' | 'completed' | 'submitting' | 'submitted';
+type Status =
+  | 'idle'
+  | 'loading'
+  | 'countdown'
+  | 'playing'
+  | 'completed'
+  | 'submitting'
+  | 'submitted'
+  | 'abandoned'
+  | 'timeout';
 
 interface SlidingPuzzleStore {
   attemptId: string | null;
@@ -15,6 +30,7 @@ interface SlidingPuzzleStore {
   moves: number;
   startTime: number | null;
   elapsedMs: number;
+  maxDurationMs: number;
   isRunning: boolean;
   countdownMs: number;
   status: Status;
@@ -28,6 +44,8 @@ interface SlidingPuzzleStore {
   tick: () => void;
   reset: () => void;
   submitResult: () => Promise<void>;
+  abandonGame: () => Promise<void>;
+  timeoutGame: () => Promise<void>;
 }
 
 export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
@@ -39,6 +57,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
   moves: 0,
   startTime: null,
   elapsedMs: 0,
+  maxDurationMs: 0,
   isRunning: false,
   countdownMs: 5000,
   status: 'idle',
@@ -59,6 +78,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
         moves: 0,
         startTime: null,
         elapsedMs: 0,
+        maxDurationMs: res.maxDurationMs,
         isRunning: false,
         countdownMs: 5000,
         status: enableCountdown ? 'countdown' : 'playing',
@@ -174,7 +194,16 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
   tick: () => {
     const state = get();
     if (!state.isRunning || !state.startTime) return;
-    set({ elapsedMs: Date.now() - state.startTime });
+    const elapsedMs = Date.now() - state.startTime;
+    if (state.maxDurationMs > 0 && elapsedMs >= state.maxDurationMs) {
+      set({
+        elapsedMs: state.maxDurationMs,
+        isRunning: false,
+      });
+      void get().timeoutGame();
+      return;
+    }
+    set({ elapsedMs });
   },
 
   reset: () => {
@@ -187,6 +216,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
       moves: 0,
       startTime: null,
       elapsedMs: 0,
+      maxDurationMs: 0,
       isRunning: false,
       countdownMs: 5000,
       status: 'idle',
@@ -205,6 +235,15 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
         moveTrace: state.moveTrace,
         clientDurationMs: state.elapsedMs,
       });
+      if (result.status === 'INVALID' && result.reason === 'TIMEOUT') {
+        set({
+          status: 'timeout',
+          result: null,
+          error: '已超时，挑战失败（不计入成绩）',
+          isRunning: false,
+        });
+        return;
+      }
       // Use server-calculated duration
       const serverDuration = (result.metrics as any)?.durationMs;
       set({
@@ -215,6 +254,35 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
       queryClient.invalidateQueries({ queryKey: ['leaderboard-entries'] });
     } catch (err: any) {
       set({ status: 'completed', error: err.message || 'Failed to submit' });
+    }
+  },
+
+  abandonGame: async () => {
+    const state = get();
+    if (!state.attemptId) return;
+    try {
+      await abandonAttemptApi('sliding-puzzle', state.attemptId);
+    } finally {
+      set({
+        status: 'abandoned',
+        isRunning: false,
+      });
+    }
+  },
+
+  timeoutGame: async () => {
+    const state = get();
+    if (!state.attemptId) return;
+    try {
+      await timeoutAttemptApi('sliding-puzzle', state.attemptId);
+    } catch {
+      // no-op: timeout state should still be reflected locally
+    } finally {
+      set({
+        status: 'timeout',
+        isRunning: false,
+        error: '已超时，挑战失败（不计入成绩）',
+      });
     }
   },
 }));

@@ -33,6 +33,18 @@ import type {
   GetLifeAttemptResponseSchema,
   AbandonLifeAttemptResponseSchema,
 } from './schemas/life-game.js';
+import type {
+  RadicalSchema,
+  CharacterCellSchema,
+  PCBConfigSchema,
+  StartPCBAttemptResponseSchema,
+  SubmitPCBRoundRequestSchema,
+  SubmitPCBRoundResponseSchema,
+  PCBStateSchema,
+  GetPCBAttemptResponseSchema,
+  AbandonPCBAttemptResponseSchema,
+  ResetPCBAttemptResponseSchema,
+} from './schemas/precise-character-building.js';
 
 // Auth
 export type RegisterInput = z.infer<typeof RegisterSchema>;
@@ -67,3 +79,15 @@ export type SubmitLifeRegionRequest = z.infer<typeof SubmitLifeRegionRequestSche
 export type SubmitLifeRegionResponse = z.infer<typeof SubmitLifeRegionResponseSchema>;
 export type GetLifeAttemptResponse = z.infer<typeof GetLifeAttemptResponseSchema>;
 export type AbandonLifeAttemptResponse = z.infer<typeof AbandonLifeAttemptResponseSchema>;
+
+// Precise Character Building
+export type Radical = z.infer<typeof RadicalSchema>;
+export type CharacterCell = z.infer<typeof CharacterCellSchema>;
+export type PuzzleConfig = z.infer<typeof PCBConfigSchema>;
+export type StartPCBAttemptResponse = z.infer<typeof StartPCBAttemptResponseSchema>;
+export type SubmitPCBRoundRequest = z.infer<typeof SubmitPCBRoundRequestSchema>;
+export type SubmitPCBRoundResponse = z.infer<typeof SubmitPCBRoundResponseSchema>;
+export type PCBState = z.infer<typeof PCBStateSchema>;
+export type GetPCBAttemptResponse = z.infer<typeof GetPCBAttemptResponseSchema>;
+export type AbandonPCBAttemptResponse = z.infer<typeof AbandonPCBAttemptResponseSchema>;
+export type ResetPCBAttemptResponse = z.infer<typeof ResetPCBAttemptResponseSchema>;

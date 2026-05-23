@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { GameAdapter } from './game-adapter.interface';
-import { SlidingPuzzleAdapter } from './adapters/sliding-puzzle.adapter';
-import { LifeGameAdapter } from './adapters/life-game.adapter';
+import { SlidingPuzzleAdapter } from '../game-modules/sliding-puzzle/sliding-puzzle.adapter';
+import { LifeGameAdapter } from '../game-modules/life-game/life-game.adapter';
+import { PreciseCharacterBuildingAdapter } from '../game-modules/precise-character-building/precise-character-building.adapter';
 
 @Injectable()
 export class GamesService {
@@ -12,9 +13,11 @@ export class GamesService {
     private prisma: PrismaService,
     slidingPuzzleAdapter: SlidingPuzzleAdapter,
     lifeGameAdapter: LifeGameAdapter,
+    pcbAdapter: PreciseCharacterBuildingAdapter,
   ) {
     this.adapters.set(slidingPuzzleAdapter.slug, slidingPuzzleAdapter);
     this.adapters.set(lifeGameAdapter.slug, lifeGameAdapter);
+    this.adapters.set(pcbAdapter.slug, pcbAdapter);
   }
 
   async findAll(status = 'PUBLISHED') {

@@ -7,7 +7,7 @@ import type {
   StartAttemptResult,
   FinishAttemptInput,
   FinishAttemptResult,
-} from '../game-adapter.interface';
+} from '../../games/game-adapter.interface';
 
 @Injectable()
 export class LifeGameAdapter implements GameAdapter {

@@ -22,6 +22,7 @@ export const StartLifeAttemptResponseSchema = z.object({
   difficultyKey: z.string(),
   seed: z.string(),
   initialState: LifeBoardStateSchema,
+  maxDurationMs: z.number().int().positive(),
   targetRegionIds: z.array(z.number().int()),
   boundary: LifeBoundaryRuleSchema,
   width: z.number().int(),
@@ -59,6 +60,7 @@ export const GetLifeAttemptResponseSchema = z.object({
   targetRegionIds: z.array(z.number().int()),
   correctRegionIds: z.array(z.number().int()),
   errorCount: z.number().int(),
+  maxDurationMs: z.number().int().positive(),
   startedAt: z.string(),
   completedAt: z.string().optional(),
   submissions: z.array(z.object({

@@ -7,10 +7,18 @@ import {
   getLifeAttemptApi,
   getLifeAnswersApi,
   abandonLifeAttemptApi,
+  timeoutAttemptApi,
 } from '../api';
 import { queryClient } from '../../../lib/query-client';
 
-type Status = 'idle' | 'loading' | 'playing' | 'submitting' | 'completed' | 'abandoned';
+type Status =
+  | 'idle'
+  | 'loading'
+  | 'playing'
+  | 'submitting'
+  | 'completed'
+  | 'abandoned'
+  | 'timeout';
 
 interface LifeBoardState {
   width: number;
@@ -36,6 +44,7 @@ interface LifeGameStore {
   answerDrafts: Record<number, LocalCellCoord[]>;
   startTime: number | null;
   elapsedMs: number;
+  maxDurationMs: number;
   isRunning: boolean;
   result: SubmitLifeRegionResponse | null;
   error: string | null;
@@ -52,6 +61,7 @@ interface LifeGameStore {
   recoverAttempt: (attemptId: string) => Promise<void>;
   showAnswer: (regionId: number) => Promise<void>;
   tick: () => void;
+  timeoutGame: () => Promise<void>;
   reset: () => void;
 }
 
@@ -79,6 +89,7 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
   answerDrafts: {},
   startTime: null,
   elapsedMs: 0,
+  maxDurationMs: 0,
   isRunning: false,
   result: null,
   error: null,
@@ -112,6 +123,7 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
         answerDrafts,
         startTime: new Date(playRes.startedAt).getTime(),
         elapsedMs: 0,
+        maxDurationMs: res.maxDurationMs,
         isRunning: true,
         status: 'playing',
         result: null,
@@ -192,6 +204,14 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
         });
       }
     } catch (err: any) {
+      if (err?.message === 'Attempt timed out') {
+        set({
+          status: 'timeout',
+          isRunning: false,
+          error: '已超时，挑战失败（不计入成绩）',
+        });
+        return;
+      }
       set({
         error: err.message || '提交失败',
         status: 'playing',
@@ -246,10 +266,14 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
       );
 
       const isCompleted = res.status === 'COMPLETED';
+      const isTimeout = res.status === 'INVALID';
       const serverDurationMs = (res.metrics as any)?.durationMs;
-      const elapsedMs = isCompleted && serverDurationMs
-        ? serverDurationMs
-        : Date.now() - new Date(res.startedAt).getTime();
+      const elapsedMs =
+        isCompleted && serverDurationMs
+          ? serverDurationMs
+          : isTimeout
+            ? res.maxDurationMs
+            : Date.now() - new Date(res.startedAt).getTime();
 
       set({
         attemptId: res.attemptId,
@@ -262,8 +286,15 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
         answerDrafts,
         startTime: new Date(res.startedAt).getTime(),
         elapsedMs,
-        isRunning: !isCompleted && res.status === 'STARTED',
-        status: isCompleted ? 'completed' : res.status === 'STARTED' ? 'playing' : 'abandoned',
+        maxDurationMs: res.maxDurationMs,
+        isRunning: !isCompleted && !isTimeout && res.status === 'STARTED',
+        status: isCompleted
+          ? 'completed'
+          : isTimeout
+            ? 'timeout'
+            : res.status === 'STARTED'
+              ? 'playing'
+              : 'abandoned',
         result: isCompleted && res.metrics
           ? {
               regionId: 0,
@@ -311,7 +342,32 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
   tick: () => {
     const state = get();
     if (!state.isRunning || !state.startTime) return;
-    set({ elapsedMs: Date.now() - state.startTime });
+    const elapsedMs = Date.now() - state.startTime;
+    if (state.maxDurationMs > 0 && elapsedMs >= state.maxDurationMs) {
+      set({
+        elapsedMs: state.maxDurationMs,
+        isRunning: false,
+      });
+      void get().timeoutGame();
+      return;
+    }
+    set({ elapsedMs });
+  },
+
+  timeoutGame: async () => {
+    const state = get();
+    if (!state.attemptId) return;
+    try {
+      await timeoutAttemptApi('life-game', state.attemptId);
+    } catch {
+      // no-op: timeout state should still be reflected locally
+    } finally {
+      set({
+        status: 'timeout',
+        isRunning: false,
+        error: '已超时，挑战失败（不计入成绩）',
+      });
+    }
   },
 
   reset: () => {
@@ -327,6 +383,7 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
       answerDrafts: {},
       startTime: null,
       elapsedMs: 0,
+      maxDurationMs: 0,
       isRunning: false,
       result: null,
       error: null,

@@ -4,14 +4,18 @@ import {
   generateSlidingPuzzleInitialState,
   validateSlidingPuzzleAttempt,
 } from '@brain-games/game-engine';
-import { FinishAttemptRequestSchema, SLIDING_PUZZLE_DIFFICULTIES, MIN_DURATION_MS, MAX_DURATION_MS } from '@brain-games/shared';
+import {
+  FinishAttemptRequestSchema,
+  SLIDING_PUZZLE_DIFFICULTIES,
+  MIN_DURATION_MS,
+} from '@brain-games/shared';
 import type {
   GameAdapter,
   StartAttemptInput,
   StartAttemptResult,
   FinishAttemptInput,
   FinishAttemptResult,
-} from '../game-adapter.interface';
+} from '../../games/game-adapter.interface';
 
 @Injectable()
 export class SlidingPuzzleAdapter implements GameAdapter {
@@ -62,8 +66,8 @@ export class SlidingPuzzleAdapter implements GameAdapter {
     if (durationMs < MIN_DURATION_MS) {
       return { valid: false, invalidReason: 'SUSPICIOUS_DURATION' };
     }
-    if (durationMs > MAX_DURATION_MS) {
-      return { valid: false, invalidReason: 'DURATION_TOO_LONG' };
+    if (durationMs > difficulty.maxDurationMs) {
+      return { valid: false, invalidReason: 'TIMEOUT' };
     }
 
     return {

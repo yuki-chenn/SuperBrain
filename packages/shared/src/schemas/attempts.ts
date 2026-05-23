@@ -15,6 +15,7 @@ export const StartAttemptResponseSchema = z.object({
   difficultyKey: z.string(),
   seed: z.string(),
   initialState: SlidingPuzzleStateSchema,
+  maxDurationMs: z.number().int().positive(),
   startedAt: z.string(),
 });
 

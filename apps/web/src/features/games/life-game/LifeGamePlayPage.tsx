@@ -36,6 +36,7 @@ export default function LifeGamePlayPage() {
     answerDrafts,
     answerHints,
     elapsedMs,
+    maxDurationMs,
     isRunning,
     result,
     error,
@@ -44,6 +45,7 @@ export default function LifeGamePlayPage() {
     toggleCell,
     submitRegion,
     showAnswer,
+    abandonGame,
     restartGame,
     recoverAttempt,
     tick,
@@ -85,54 +87,71 @@ export default function LifeGamePlayPage() {
   }, [restartGame]);
 
   const handleDifficultyChange = useCallback((key: string) => {
+    const canChangeDifficulty = status === 'idle' || status === 'abandoned';
+    if (!canChangeDifficulty) return;
     setSelectedDifficulty(key);
-    if (status !== 'idle') {
-      reset();
-    }
-  }, [status, reset]);
+  }, [status]);
 
   const handleSubmitRegion = useCallback((regionId: number) => {
     submitRegion(regionId);
   }, [submitRegion]);
 
   const difficultyLabel = LIFE_GAME_DIFFICULTIES.find((d) => d.key === selectedDifficulty)?.label || '入门';
+  const selectedMaxDurationMs =
+    LIFE_GAME_DIFFICULTIES.find((d) => d.key === selectedDifficulty)?.maxDurationMs ?? 0;
   const isGameActive = status === 'loading' || status === 'playing' || status === 'submitting' || status === 'completed';
+  const canChangeDifficulty = status === 'idle' || status === 'abandoned' || status === 'timeout';
 
   const infoPanel = (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-[var(--sb-text-primary)] mb-1">生命游戏</h1>
         <p className="text-xs text-[var(--sb-text-muted)]">{difficultyLabel}</p>
+        <p className="text-xs text-[var(--sb-text-muted)] mt-1">
+          最长时长：{formatDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
+        </p>
       </div>
 
       {/* HUD */}
       {isGameActive && (
         <GameHud
           items={[
-            { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
-            { label: '错误', value: errorCount, emphasize: true },
-            { label: '进度', value: `${correctRegionIds.length} / ${targetRegionIds.length}` },
-          ]}
-        />
-      )}
+              { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
+              { label: '错误', value: errorCount, emphasize: true },
+              { label: '进度', value: `${correctRegionIds.length} / ${targetRegionIds.length}` },
+              { label: '上限', value: formatDuration(maxDurationMs || selectedMaxDurationMs) },
+            ]}
+          />
+        )}
 
       {/* Difficulty selector */}
-      <div>
-        <h3 className="text-xs font-semibold text-[var(--sb-text-muted)] mb-2">难度</h3>
-        <DifficultySelector
-          levels={LIFE_GAME_DIFFICULTIES.map((d) => ({ key: d.key, label: d.label }))}
-          value={selectedDifficulty}
-          onChange={handleDifficultyChange}
-        />
-      </div>
+      {canChangeDifficulty && (
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--sb-text-muted)] mb-2">难度</h3>
+          <DifficultySelector
+            levels={LIFE_GAME_DIFFICULTIES.map((d) => ({ key: d.key, label: d.label }))}
+            value={selectedDifficulty}
+            onChange={handleDifficultyChange}
+          />
+        </div>
+      )}
 
       {/* Control buttons */}
       <GameControlBar
-        status={status === 'abandoned' ? 'idle' : status}
+        status={status === 'abandoned' || status === 'timeout' ? 'idle' : status}
         onStart={handleStart}
         onRestart={handleRestart}
         isAuthenticated={isAuthenticated}
       />
+
+      {(status === 'playing' || status === 'submitting') && (
+        <button
+          className="w-full py-2 text-xs text-gray-400 hover:text-red-400 transition-colors"
+          onClick={abandonGame}
+        >
+          放弃挑战
+        </button>
+      )}
 
       {status === 'submitting' && (
         <p className="text-xs text-[var(--sb-text-muted)]">提交中...</p>

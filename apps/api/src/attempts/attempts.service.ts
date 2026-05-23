@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { GamesService } from '../games/games.service';
 import { LeaderboardsService } from '../leaderboards/leaderboards.service';
+import { getGameMaxDurationMs, isAttemptTimedOut } from '../games/attempt-timeout';
 
 @Injectable()
 export class AttemptsService {
@@ -31,12 +32,10 @@ export class AttemptsService {
       gameId: game.id,
       difficultyKey,
     });
+    const maxDurationMs = getGameMaxDurationMs(gameSlug, difficultyKey);
 
-    // For life-game, the seed is the puzzle ID and we need to store metadata
     const isLifeGame = gameSlug === 'life-game';
-    const lifeGameState = isLifeGame
-      ? (result.initialState as { width: number; height: number; aliveCells: unknown[] })
-      : null;
+    const isPCB = gameSlug === 'precise-character-building';
 
     const createData: any = {
       userId,
@@ -48,7 +47,6 @@ export class AttemptsService {
     };
 
     if (isLifeGame) {
-      // Load puzzle to get target region info
       const puzzle = await this.prisma.lifePuzzle.findUnique({
         where: { id: result.seed },
       });
@@ -66,16 +64,34 @@ export class AttemptsService {
       }
     }
 
+    if (isPCB) {
+      const pcbState = {
+        currentRoundIndex: 0,
+        currentPosition: null,
+        litCellIndices: [],
+        disabledRadicalKeys: [],
+        errorCount: 0,
+      };
+      createData.pcbPuzzleId = result.seed;
+      createData.metadata = {
+        ...pcbState,
+        litResults: [],
+        puzzleId: result.seed,
+      };
+    }
+
     const attempt = await this.prisma.gameAttempt.create({
       data: createData,
     });
 
+    const initialState = result.initialState as any;
     const response: any = {
       attemptId: attempt.id,
       gameSlug,
       difficultyKey,
       seed: result.seed,
       initialState: result.initialState,
+      maxDurationMs,
       startedAt: attempt.startedAt.toISOString(),
     };
 
@@ -84,6 +100,24 @@ export class AttemptsService {
       response.boundary = createData.metadata.boundary;
       response.width = createData.metadata.width;
       response.height = createData.metadata.height;
+    }
+
+    if (isPCB) {
+      const config = {
+        ...(initialState.config || {}),
+        adjacencyMode: 'ORTHOGONAL_4',
+      };
+      response.state = {
+        currentRoundIndex: 0,
+        currentPosition: null,
+        litCellIndices: [],
+        disabledRadicalKeys: [],
+        errorCount: 0,
+      };
+      response.boardSize = 6;
+      response.cells = initialState.cells;
+      response.radicalPool = initialState.radicalPool;
+      response.config = config;
     }
 
     return response;
@@ -98,6 +132,22 @@ export class AttemptsService {
     if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
     if (attempt.status !== 'STARTED') {
       throw new ConflictException('Attempt already finished');
+    }
+    const maxDurationMs = getGameMaxDurationMs(gameSlug, attempt.difficultyKey);
+    if (isAttemptTimedOut(attempt.startedAt, maxDurationMs)) {
+      await this.prisma.gameAttempt.update({
+        where: { id: attemptId },
+        data: {
+          status: 'INVALID',
+          invalidReason: 'TIMEOUT',
+          completedAt: new Date(),
+        },
+      });
+      return {
+        attemptId,
+        status: 'INVALID',
+        reason: 'TIMEOUT',
+      };
     }
 
     const now = new Date();
@@ -117,6 +167,9 @@ export class AttemptsService {
   ) {
     if (gameSlug === 'life-game') {
       throw new BadRequestException('Life game uses region submission. Use /regions/:regionId/submit instead.');
+    }
+    if (gameSlug === 'precise-character-building') {
+      throw new BadRequestException('PCB game uses round submission. Use /rounds/submit instead.');
     }
 
     const game = await this.games.findBySlug(gameSlug);
@@ -183,5 +236,72 @@ export class AttemptsService {
       leaderboardUpdated: lbResult.updated,
       personalBest: lbResult.updated,
     };
+  }
+
+  async abandonAttempt(userId: string, gameSlug: string, attemptId: string) {
+    if (gameSlug === 'life-game') {
+      throw new BadRequestException('Life game uses /games/life-game/attempts/:attemptId/abandon');
+    }
+    if (gameSlug === 'precise-character-building') {
+      throw new BadRequestException(
+        'PCB game uses /games/precise-character-building/attempts/:attemptId/abandon',
+      );
+    }
+
+    const game = await this.games.findBySlug(gameSlug);
+    const attempt = await this.prisma.gameAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
+    if (attempt.gameId !== game.id) throw new NotFoundException('Attempt not found');
+    if (attempt.status !== 'STARTED') {
+      throw new ConflictException('Attempt already finished');
+    }
+
+    await this.prisma.gameAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: 'ABANDONED',
+        completedAt: new Date(),
+      },
+    });
+
+    return { success: true };
+  }
+
+  async timeoutAttempt(userId: string, gameSlug: string, attemptId: string) {
+    const game = await this.games.findBySlug(gameSlug);
+    const attempt = await this.prisma.gameAttempt.findUnique({
+      where: { id: attemptId },
+    });
+
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
+    if (attempt.gameId !== game.id) throw new NotFoundException('Attempt not found');
+
+    if (attempt.status === 'INVALID' && attempt.invalidReason === 'TIMEOUT') {
+      return { success: true, status: 'INVALID', reason: 'TIMEOUT' as const };
+    }
+    if (attempt.status !== 'STARTED') {
+      throw new ConflictException('Attempt already finished');
+    }
+
+    const maxDurationMs = getGameMaxDurationMs(gameSlug, attempt.difficultyKey);
+    if (!isAttemptTimedOut(attempt.startedAt, maxDurationMs)) {
+      throw new BadRequestException('Attempt has not reached timeout yet');
+    }
+
+    await this.prisma.gameAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: 'INVALID',
+        invalidReason: 'TIMEOUT',
+        completedAt: new Date(),
+      },
+    });
+
+    return { success: true, status: 'INVALID', reason: 'TIMEOUT' as const };
   }
 }

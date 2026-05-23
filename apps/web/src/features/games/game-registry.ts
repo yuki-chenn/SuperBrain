@@ -17,4 +17,9 @@ export const webGameRegistry: Record<string, WebGameDefinition> = {
     playRoute: '/games/life-game/play',
     component: lazy(() => import('./life-game/LifeGamePlayPage')),
   },
+  'precise-character-building': {
+    slug: 'precise-character-building',
+    playRoute: '/games/precise-character-building/play',
+    component: lazy(() => import('./precise-character-building/PreciseCharacterPlayPage')),
+  },
 };

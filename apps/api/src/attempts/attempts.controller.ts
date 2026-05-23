@@ -45,4 +45,24 @@ export class AttemptsController {
   ) {
     return this.attemptsService.finishAttempt(user.id, slug, attemptId, body);
   }
+
+  @Post(':attemptId/abandon')
+  @UseGuards(JwtAuthGuard)
+  async abandon(
+    @CurrentUser() user: { id: string },
+    @Param('slug') slug: string,
+    @Param('attemptId') attemptId: string,
+  ) {
+    return this.attemptsService.abandonAttempt(user.id, slug, attemptId);
+  }
+
+  @Post(':attemptId/timeout')
+  @UseGuards(JwtAuthGuard)
+  async timeout(
+    @CurrentUser() user: { id: string },
+    @Param('slug') slug: string,
+    @Param('attemptId') attemptId: string,
+  ) {
+    return this.attemptsService.timeoutAttempt(user.id, slug, attemptId);
+  }
 }

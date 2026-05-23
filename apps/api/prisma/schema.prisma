@@ -63,6 +63,7 @@ model User {
   entries          LeaderboardEntry[]
   sessions         Session[]
   lifeSubmissions  LifeRegionSubmission[]
+  pcbSubmissions   PreciseCharacterRoundSubmission[]
 }
 
 model Session {
@@ -104,6 +105,7 @@ model Game {
   attempts     GameAttempt[]
   leaderboards LeaderboardDefinition[]
   lifePuzzles  LifePuzzle[]
+  pcbPuzzles   PreciseCharacterPuzzle[]
 }
 
 model GameAttempt {
@@ -130,6 +132,9 @@ model GameAttempt {
   lifePuzzle     LifePuzzle?           @relation(fields: [lifePuzzleId], references: [id])
   lifePuzzleId   String?
   lifeSubmissions LifeRegionSubmission[]
+  pcbPuzzle      PreciseCharacterPuzzle? @relation(fields: [pcbPuzzleId], references: [id])
+  pcbPuzzleId    String?
+  pcbSubmissions PreciseCharacterRoundSubmission[]
 
   @@index([userId, gameId, difficultyKey, status])
   @@index([gameId, difficultyKey, status, rankValue])
@@ -210,4 +215,94 @@ model LifeRegionSubmission {
   @@index([attemptId])
   @@index([userId])
   @@index([attemptId, regionId])
+}
+
+model CharacterRadical {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  glyph        String
+  label        String
+  category     String
+  enabled      Boolean  @default(true)
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  combinations CharacterCombination[]
+}
+
+model CharacterRoot {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  glyph           String
+  complexityLevel String
+  enabled         Boolean  @default(true)
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  combinations CharacterCombination[]
+}
+
+model CharacterCombination {
+  id             String   @id @default(cuid())
+  radicalId      String
+  rootId         String
+  resultChar     String
+  pinyin         String?
+  structure      String
+  difficulty     String
+  frequencyLevel String
+  enabled        Boolean  @default(true)
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  radical CharacterRadical @relation(fields: [radicalId], references: [id], onDelete: Cascade)
+  root    CharacterRoot    @relation(fields: [rootId], references: [id], onDelete: Cascade)
+
+  @@unique([radicalId, rootId, resultChar])
+  @@index([radicalId, rootId])
+  @@index([difficulty, enabled])
+}
+
+model PreciseCharacterPuzzle {
+  id             String   @id @default(cuid())
+  difficultyKey  String
+  boardSize      Int      @default(6)
+  radicalPool    Json
+  cells          Json
+  solutionRounds Json
+  config         Json
+  status         String   @default("ACTIVE")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  game     Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId   String
+  attempts GameAttempt[]
+
+  @@index([difficultyKey, status])
+}
+
+model PreciseCharacterRoundSubmission {
+  id                  String   @id @default(cuid())
+  attemptId           String
+  userId              String
+  roundIndex          Int
+  selectedRadicalKeys Json
+  selectedCellIndices Json
+  resultChars         Json?
+  combinationIds      Json?
+  correct             Boolean
+  errorReason         String?
+  submittedAt         DateTime @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@index([userId])
+  @@index([attemptId, roundIndex])
 }
