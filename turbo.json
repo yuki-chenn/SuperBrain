@@ -3,6 +3,17 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "tsconfig*.json",
+        "package.json",
+        "vite.config.ts",
+        "nest-cli.json",
+        "prisma/schema.prisma",
+        "prisma/migrations/**",
+        "prisma/seed.ts",
+        "prisma/seed/**"
+      ],
       "outputs": ["dist/**"]
     },
     "dev": {
@@ -10,8 +21,21 @@
       "cache": false
     },
     "test": {
-      "dependsOn": ["build"]
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "tsconfig*.json",
+        "package.json",
+        "jest.config.ts",
+        "vitest.config.ts"
+      ]
     },
-    "lint": {}
+    "lint": {
+      "inputs": [
+        "src/**",
+        ".eslintrc*",
+        "eslint.config.*"
+      ]
+    }
   }
 }

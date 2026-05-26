@@ -1,11 +1,22 @@
 import type { SlidingPuzzleState, ValidationResult } from './types.js';
 import { replayMoves } from './engine.js';
 
-const MAX_MOVES_LIMIT: Record<number, number> = {
-  3: 2000,
-  4: 10000,
-  5: 30000,
+/**
+ * Per-board-size cap on the length of a submitted move trace.
+ *
+ * Acts as anti-cheat (bounds bot floods) and as a server-side replay
+ * resource guard (each entry triggers one move replay). Numbers are
+ * empirical "humanly plausible" upper bounds with ~10× headroom.
+ *
+ * Single source of truth — do NOT duplicate this map elsewhere.
+ */
+export const MAX_MOVES_LIMIT: Record<number, number> = {
+  3: 2_000,
+  4: 10_000,
+  5: 30_000,
 };
+
+const FALLBACK_MAX_MOVES = 30_000;
 
 export function validateSlidingPuzzleAttempt(input: {
   initialState: SlidingPuzzleState;
@@ -33,7 +44,7 @@ export function validateSlidingPuzzleAttempt(input: {
   }
 
   // Check max moves limit
-  const maxMoves = MAX_MOVES_LIMIT[size] ?? 30000;
+  const maxMoves = MAX_MOVES_LIMIT[size] ?? FALLBACK_MAX_MOVES;
   if (moveTrace.length > maxMoves) {
     return { valid: false, reason: 'MAX_MOVES_EXCEEDED' };
   }

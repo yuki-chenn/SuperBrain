@@ -41,7 +41,7 @@ interface PCBStore {
   disabledRadicalKeys: string[];
   errorCount: number;
   litResults: LitResult[];
-  selectedRadicalKeys: string[];
+  selectedRadicalKeys: (string | null)[];
   selectedCellIndices: number[];
   elapsedMs: number;
   startTime: number | null;
@@ -93,6 +93,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
     set({ status: 'loading', difficultyKey });
     try {
       const res = await startPCBAttemptApi(difficultyKey);
+      const picks = (res.config as PuzzleConfig).picksPerRound;
         set({
           status: 'playing',
           attemptId: res.attemptId,
@@ -105,7 +106,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
         disabledRadicalKeys: res.state.disabledRadicalKeys,
         errorCount: res.state.errorCount,
           litResults: [],
-          selectedRadicalKeys: [],
+          selectedRadicalKeys: Array.from({ length: picks }, () => null),
           selectedCellIndices: [],
           elapsedMs: 0,
           startTime: new Date(res.startedAt).getTime(),
@@ -122,20 +123,26 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
     if (!config) return;
     if (disabledRadicalKeys.includes(key)) return;
 
-    const picksPerRound = config.picksPerRound;
-    if (selectedRadicalKeys.length < picksPerRound) {
-      set({ selectedRadicalKeys: [...selectedRadicalKeys, key] });
-    } else {
-      // Replace last slot
-      const updated = [...selectedRadicalKeys];
+    const updated = [...selectedRadicalKeys];
+    // Fill the first empty slot. If none, replace the last slot (matching old
+    // overwrite-tail behavior) so users can still re-pick after the row is full.
+    const emptyAt = updated.findIndex((k) => k === null);
+    if (emptyAt >= 0) {
+      updated[emptyAt] = key;
+    } else if (updated.length > 0) {
       updated[updated.length - 1] = key;
-      set({ selectedRadicalKeys: updated });
     }
+    set({ selectedRadicalKeys: updated });
   },
 
   clearRadicalSlot: (index: number) => {
     const { selectedRadicalKeys } = get();
-    const updated = selectedRadicalKeys.filter((_, i) => i !== index);
+    if (index < 0 || index >= selectedRadicalKeys.length) return;
+    // Leave a hole at `index` instead of shifting later slots forward, so the
+    // visual mapping between radical slot N and cell N stays stable across
+    // edits. Subsequent picks fill the leftmost hole (see selectRadical).
+    const updated = [...selectedRadicalKeys];
+    updated[index] = null;
     set({ selectedRadicalKeys: updated });
   },
 
@@ -191,12 +198,14 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
   submitRound: async () => {
     const { attemptId, selectedRadicalKeys, selectedCellIndices, config } = get();
     if (!attemptId || !config) return;
-    if (selectedRadicalKeys.length !== config.picksPerRound) return;
+    // Reject submission if any radical slot is empty (null).
+    const filledRadicalKeys = selectedRadicalKeys.filter((k): k is string => k !== null);
+    if (filledRadicalKeys.length !== config.picksPerRound) return;
     if (selectedCellIndices.length !== config.picksPerRound) return;
 
     set({ status: 'submitting' });
     try {
-      const res = await submitPCBRoundApi(attemptId, selectedRadicalKeys, selectedCellIndices);
+      const res = await submitPCBRoundApi(attemptId, filledRadicalKeys, selectedCellIndices);
 
       if (res.correct) {
         const newLitResults: LitResult[] = [
@@ -216,7 +225,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
           disabledRadicalKeys: res.state.disabledRadicalKeys,
           errorCount: res.errorCount,
           litResults: newLitResults,
-          selectedRadicalKeys: [],
+          selectedRadicalKeys: Array.from({ length: config.picksPerRound }, () => null),
           selectedCellIndices: [],
           result: res.result || null,
         });
@@ -292,6 +301,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
         ? { ...res.metrics, personalBest: false }
         : null;
 
+      const picks = (res.config as PuzzleConfig).picksPerRound;
       set({
         status: recoveredStatus,
         attemptId: res.attemptId,
@@ -305,7 +315,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
         disabledRadicalKeys: res.state.disabledRadicalKeys,
         errorCount: res.state.errorCount,
         litResults: res.litResults as LitResult[],
-        selectedRadicalKeys: [],
+        selectedRadicalKeys: Array.from({ length: picks }, () => null),
         selectedCellIndices: [],
         elapsedMs: res.status === 'INVALID' ? res.maxDurationMs : recoveredResult?.durationMs ?? 0,
         startTime: res.status === 'STARTED' ? new Date(res.startedAt).getTime() : null,
@@ -328,13 +338,14 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
   },
 
   resetBoard: async () => {
-    const { attemptId, status } = get();
+    const { attemptId, status, config } = get();
     if (!attemptId) return;
     if (!(status === 'playing' || status === 'submitting')) return;
 
     set({ status: 'submitting' });
     try {
       const res = await resetPCBAttemptApi(attemptId);
+      const picks = config?.picksPerRound ?? 4;
       set({
         status: 'playing',
         currentRoundIndex: res.state.currentRoundIndex,
@@ -343,7 +354,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
         disabledRadicalKeys: res.state.disabledRadicalKeys,
         errorCount: res.state.errorCount,
         litResults: [],
-        selectedRadicalKeys: [],
+        selectedRadicalKeys: Array.from({ length: picks }, () => null),
         selectedCellIndices: [],
         result: null,
       });

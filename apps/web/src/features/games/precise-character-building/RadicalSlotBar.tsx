@@ -7,15 +7,16 @@ export default function RadicalSlotBar() {
   const isPlayable = status === 'playing';
 
   const radicalMap = new Map(radicalPool.map((r) => [r.key, r.glyph]));
+  const filledCount = selectedRadicalKeys.filter((k) => k !== null).length;
 
   return (
     <div className="space-y-2">
       <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-        部首选择 ({selectedRadicalKeys.length}/{picksPerRound})
+        部首选择 ({filledCount}/{picksPerRound})
       </div>
       <div className="grid grid-cols-4 gap-2">
         {Array.from({ length: picksPerRound }, (_, i) => {
-          const key = selectedRadicalKeys[i];
+          const key = selectedRadicalKeys[i] ?? null;
           const glyph = key ? radicalMap.get(key) : null;
 
           return (

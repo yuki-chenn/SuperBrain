@@ -91,6 +91,11 @@ async function main() {
   console.log(`Created game: ${lifeGame.title} (${lifeGame.slug})`);
   await seedLeaderboards(prisma, lifeGame.id, GAME_LEADERBOARD_CONFIGS['life-game']);
 
+  const deletedLifePuzzles = await prisma.lifePuzzle.deleteMany({
+    where: { gameId: lifeGame.id },
+  });
+  console.log(`Cleared ${deletedLifePuzzles.count} stale life puzzles`);
+
   const lifePuzzleConfigs = [
     { difficultyKey: 'easy', targetRegionCount: 1, count: 3 },
     { difficultyKey: 'normal', targetRegionCount: 2, count: 3 },
@@ -152,6 +157,12 @@ async function main() {
     rootRecords[r.key] = record;
   }
   console.log(`Seeded ${ROOT_DATA.length} roots`);
+
+  // Wipe the combination dictionary before re-inserting so removed/buggy
+  // entries from previous seeds don't linger as enabled rows. The dictionary
+  // is purely seed-driven (no user-editable rows), so this is safe.
+  const deletedCombos = await prisma.characterCombination.deleteMany({});
+  console.log(`Cleared ${deletedCombos.count} stale combinations`);
 
   for (const c of COMBO_DATA) {
     const radical = radicalRecords[c.radicalKey];

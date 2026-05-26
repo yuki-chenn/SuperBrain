@@ -3,13 +3,14 @@ import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useSlidingPuzzleStore } from './useSlidingPuzzleStore';
 import { SlidingPuzzleBoard } from './SlidingPuzzleBoard';
 import { useAuthStore } from '../../auth/auth-store';
-import { formatDuration } from '../../../lib/format';
+import { formatDuration, formatChineseDuration } from '../../../lib/format';
 import { SLIDING_PUZZLE_DIFFICULTIES } from '@brain-games/shared';
 import { GamePlayLayout } from '../../../components/game/GamePlayLayout';
 import { GameStage } from '../../../components/game/GameStage';
 import { GameHud } from '../../../components/game/GameHud';
 import { GameControlBar } from '../../../components/game/GameControlBar';
 import { GameResultModal } from '../../../components/game/GameResultModal';
+import { GameTimeoutModal } from '../../../components/game/GameTimeoutModal';
 import { DifficultySelector } from '../../../components/game/DifficultySelector';
 import { Card } from '../../../components/ui/Card';
 
@@ -112,7 +113,7 @@ export default function SlidingPuzzlePage() {
         <h1 className="text-xl font-bold text-[var(--sb-text-primary)] mb-1">数字华容道</h1>
         <p className="text-xs text-[var(--sb-text-muted)]">{difficultyLabel}</p>
         <p className="text-xs text-[var(--sb-text-muted)] mt-1">
-          最长时长：{formatDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
+          最长时长：{formatChineseDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
         </p>
       </div>
 
@@ -122,10 +123,9 @@ export default function SlidingPuzzlePage() {
           items={[
               { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
               { label: '步数', value: moves, emphasize: true },
-              { label: '上限', value: formatDuration(maxDurationMs || selectedMaxDurationMs) },
             ]}
           />
-        )}
+      )}
 
       {/* Countdown display */}
       {status === 'countdown' && (
@@ -181,7 +181,7 @@ export default function SlidingPuzzlePage() {
         <p className="text-xs text-[var(--sb-text-muted)]">提交成绩中...</p>
       )}
 
-      {error && (
+      {error && status !== 'timeout' && (
         <p className="text-xs text-[var(--sb-danger)]">{error}</p>
       )}
     </div>
@@ -235,7 +235,7 @@ export default function SlidingPuzzlePage() {
     <>
       <GamePlayLayout infoPanel={infoPanel} stage={stage} sidePanel={sidePanel} />
 
-      {showResult && result && (
+      {showResult && result && status !== 'timeout' && (
         <GameResultModal
           metrics={{
             durationMs: elapsedMs,
@@ -243,7 +243,6 @@ export default function SlidingPuzzlePage() {
             size: SLIDING_PUZZLE_DIFFICULTIES.find((d) => d.key === selectedDifficulty)?.size,
           }}
           personalBest={result.personalBest}
-          onRestart={() => { setShowResult(false); handleRestart(); }}
           onViewLeaderboard={() => {
             setShowResult(false);
             navigate({
@@ -255,6 +254,13 @@ export default function SlidingPuzzlePage() {
           onClose={() => setShowResult(false)}
         />
       )}
+
+      <GameTimeoutModal
+        open={status === 'timeout'}
+        maxDurationMs={maxDurationMs || selectedMaxDurationMs}
+        onRestart={handleRestart}
+        onBackToGames={() => navigate({ to: '/games' })}
+      />
     </>
   );
 }

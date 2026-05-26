@@ -9,4 +9,4 @@ export {
   replayMoves,
 } from './engine.js';
 export { generateSlidingPuzzleInitialState } from './generator.js';
-export { validateSlidingPuzzleAttempt } from './validator.js';
+export { validateSlidingPuzzleAttempt, MAX_MOVES_LIMIT } from './validator.js';

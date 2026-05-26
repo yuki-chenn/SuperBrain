@@ -308,7 +308,7 @@ MAX_GENERATION_REACHED
 为了避免无限推演，设置最大迭代次数：
 
 ```ts
-const LIFE_MAX_GENERATIONS = 300;
+const LIFE_MAX_GENERATIONS = 100;
 ```
 
 模拟流程：
@@ -324,7 +324,7 @@ generation 2
 stable or max generation
 ```
 
-如果 300 代内没有 fixed point，则判定为不可用题目。
+如果 100 代内没有 fixed point，则判定为不可用题目。
 
 ---
 
@@ -1436,7 +1436,7 @@ simulateUntilStable
 
 只允许以下题目入库：
 
-1. 300 代内稳定。
+1. 100 代内稳定。
 2. 目标区域最终存活细胞数量大于 0。
 3. 目标区域最终存活细胞数量不超过 80。
 4. 不同目标区域答案不是完全空白。

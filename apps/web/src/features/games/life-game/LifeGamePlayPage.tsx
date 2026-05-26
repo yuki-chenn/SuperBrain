@@ -2,16 +2,19 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useLifeGameStore } from './useLifeGameStore';
 import { LifeInitialBoard } from './LifeInitialBoard';
+import { LifeSimulationPlayer } from './LifeSimulationPlayer';
 import { LifeTargetPanel } from './LifeTargetPanel';
 import { LifeRulesPanel } from './LifeRulesPanel';
 import { LifeResultModal } from './LifeResultModal';
 import { useAuthStore } from '../../auth/auth-store';
-import { formatDuration } from '../../../lib/format';
+import { formatDuration, formatChineseDuration } from '../../../lib/format';
 import { LIFE_GAME_DIFFICULTIES } from '@brain-games/shared';
+import { DEFAULT_LIFE_BOUNDARY_RULE } from '@brain-games/game-engine';
 import { GamePlayLayout } from '../../../components/game/GamePlayLayout';
 import { GameStage } from '../../../components/game/GameStage';
 import { GameHud } from '../../../components/game/GameHud';
 import { GameControlBar } from '../../../components/game/GameControlBar';
+import { GameTimeoutModal } from '../../../components/game/GameTimeoutModal';
 import { DifficultySelector } from '../../../components/game/DifficultySelector';
 import { Card } from '../../../components/ui/Card';
 
@@ -24,6 +27,7 @@ export default function LifeGamePlayPage() {
 
   const [selectedDifficulty, setSelectedDifficulty] = useState(search.difficulty || 'easy');
   const [showResult, setShowResult] = useState(false);
+  const [showSimulation, setShowSimulation] = useState(false);
 
   const {
     status,
@@ -108,7 +112,7 @@ export default function LifeGamePlayPage() {
         <h1 className="text-xl font-bold text-[var(--sb-text-primary)] mb-1">生命游戏</h1>
         <p className="text-xs text-[var(--sb-text-muted)]">{difficultyLabel}</p>
         <p className="text-xs text-[var(--sb-text-muted)] mt-1">
-          最长时长：{formatDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
+          最长时长：{formatChineseDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
         </p>
       </div>
 
@@ -119,10 +123,9 @@ export default function LifeGamePlayPage() {
               { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
               { label: '错误', value: errorCount, emphasize: true },
               { label: '进度', value: `${correctRegionIds.length} / ${targetRegionIds.length}` },
-              { label: '上限', value: formatDuration(maxDurationMs || selectedMaxDurationMs) },
             ]}
           />
-        )}
+      )}
 
       {/* Difficulty selector */}
       {canChangeDifficulty && (
@@ -157,18 +160,27 @@ export default function LifeGamePlayPage() {
         <p className="text-xs text-[var(--sb-text-muted)]">提交中...</p>
       )}
 
-      {error && (
+      {error && status !== 'timeout' && (
         <p className="text-xs text-[var(--sb-danger)]">{error}</p>
       )}
 
       {isGameActive && isDevAdmin && (
-        <button
-          type="button"
-          onClick={() => activeRegionId && showAnswer(activeRegionId)}
-          className="text-xs text-[var(--sb-text-muted)] hover:text-[var(--sb-primary)] transition-colors"
-        >
-          {activeRegionId && answerHints[activeRegionId] ? '隐藏答案' : '显示答案（调试）'}
-        </button>
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => activeRegionId && showAnswer(activeRegionId)}
+            className="text-xs text-[var(--sb-text-muted)] hover:text-[var(--sb-primary)] transition-colors text-left"
+          >
+            {activeRegionId && answerHints[activeRegionId] ? '隐藏答案' : '显示答案（调试）'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSimulation((v) => !v)}
+            className="text-xs text-[var(--sb-text-muted)] hover:text-[var(--sb-primary)] transition-colors text-left"
+          >
+            {showSimulation ? '退出演变（调试）' : '演变过程（调试）'}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -197,11 +209,21 @@ export default function LifeGamePlayPage() {
           <p className="text-[var(--sb-text-muted)] text-sm">选择难度后点击开始</p>
         </div>
       ) : initialState ? (
-        <LifeInitialBoard
-          aliveCells={initialState.aliveCells}
-          targetRegionIds={targetRegionIds}
-          correctRegionIds={correctRegionIds}
-        />
+        showSimulation && isDevAdmin ? (
+          <LifeSimulationPlayer
+            initialState={initialState}
+            boundary={DEFAULT_LIFE_BOUNDARY_RULE}
+            targetRegionIds={targetRegionIds}
+            correctRegionIds={correctRegionIds}
+            onClose={() => setShowSimulation(false)}
+          />
+        ) : (
+          <LifeInitialBoard
+            aliveCells={initialState.aliveCells}
+            targetRegionIds={targetRegionIds}
+            correctRegionIds={correctRegionIds}
+          />
+        )
       ) : null}
     </GameStage>
   );
@@ -226,7 +248,7 @@ export default function LifeGamePlayPage() {
     <>
       <GamePlayLayout infoPanel={infoPanel} stage={stage} sidePanel={sidePanel} />
 
-      {showResult && result?.result && (
+      {showResult && result?.result && status !== 'timeout' && (
         <LifeResultModal
           durationMs={result.result.durationMs}
           errorCount={result.result.errorCount}
@@ -244,6 +266,13 @@ export default function LifeGamePlayPage() {
           onClose={() => setShowResult(false)}
         />
       )}
+
+      <GameTimeoutModal
+        open={status === 'timeout'}
+        maxDurationMs={maxDurationMs || selectedMaxDurationMs}
+        onRestart={handleRestart}
+        onBackToGames={() => navigate({ to: '/games' })}
+      />
     </>
   );
 }

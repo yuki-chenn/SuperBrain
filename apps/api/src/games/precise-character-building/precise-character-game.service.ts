@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 import { LeaderboardsService } from '../../leaderboards/leaderboards.service';
 import {
   validateRoundPath,
@@ -16,7 +16,7 @@ import {
 } from '@brain-games/game-engine';
 import { getPCBMaxDurationMs } from '@brain-games/shared';
 import type { Radical } from '@brain-games/game-engine';
-import { isAttemptTimedOut } from '../../games/attempt-timeout';
+import { isAttemptTimedOut } from '../attempt-timeout';
 
 interface PuzzleData {
   radicalPool: Radical[];

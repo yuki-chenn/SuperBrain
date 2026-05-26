@@ -60,6 +60,32 @@ pnpm --filter @brain-games/game-engine test  # Game engine tests only
 5. Create frontend components in `apps/web/src/features/games/<game>/`
 6. Register in `apps/web/src/features/games/game-registry.ts`
 
+## Adjusting Game Timeouts
+
+Each game enforces a per-difficulty time budget; exceeding it ends the
+attempt with `INVALID/TIMEOUT` server-side and surfaces a "挑战超时" modal
+on the client. The attempt is recorded as INVALID for audit but is **not**
+counted toward any leaderboard.
+
+The single source of truth for these timeouts lives in the shared package:
+
+| Game | Config file |
+|------|-------------|
+| Sliding puzzle | `packages/shared/src/games/sliding-puzzle/config.ts` |
+| Life game | `packages/shared/src/games/life-game/config.ts` |
+| Precise character building | `packages/shared/src/games/precise-character-building/config.ts` |
+
+Edit the `maxDurationMs` field on the difficulty entry you want to change,
+then rebuild the shared package so both apps pick up the new value:
+
+```bash
+pnpm --filter @brain-games/shared build
+```
+
+No database migration is required. The same constant feeds the API
+(`getGameMaxDurationMs(slug, difficultyKey)`), the `startAttempt` response,
+and the in-game `GameCountdown` HUD on the web client.
+
 ## Known Limitations (MVP)
 
 - No real-time multiplayer

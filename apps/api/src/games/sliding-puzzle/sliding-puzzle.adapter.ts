@@ -15,7 +15,7 @@ import type {
   StartAttemptResult,
   FinishAttemptInput,
   FinishAttemptResult,
-} from '../../games/game-adapter.interface';
+} from '../game-adapter.interface';
 
 @Injectable()
 export class SlidingPuzzleAdapter implements GameAdapter {

@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 import type {
   GameAdapter,
   StartAttemptInput,
   StartAttemptResult,
   FinishAttemptInput,
   FinishAttemptResult,
-} from '../../games/game-adapter.interface';
+} from '../game-adapter.interface';
 
 @Injectable()
 export class PreciseCharacterBuildingAdapter implements GameAdapter {

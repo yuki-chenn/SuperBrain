@@ -33,6 +33,7 @@ interface SlidingPuzzleStore {
   maxDurationMs: number;
   isRunning: boolean;
   countdownMs: number;
+  countdownStartTime: number | null;
   status: Status;
   result: FinishAttemptResponse | null;
   error: string | null;
@@ -60,6 +61,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
   maxDurationMs: 0,
   isRunning: false,
   countdownMs: 5000,
+  countdownStartTime: null,
   status: 'idle',
   result: null,
   error: null,
@@ -81,6 +83,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
         maxDurationMs: res.maxDurationMs,
         isRunning: false,
         countdownMs: 5000,
+        countdownStartTime: enableCountdown ? Date.now() : null,
         status: enableCountdown ? 'countdown' : 'playing',
         result: null,
       });
@@ -97,9 +100,11 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
   countdownTick: () => {
     const state = get();
     if (state.status !== 'countdown') return;
-    const newMs = state.countdownMs - 100;
-    if (newMs <= 0) {
-      set({ countdownMs: 0, status: 'playing' });
+    const startTime = state.countdownStartTime ?? Date.now();
+    const elapsed = Date.now() - startTime;
+    const remaining = Math.max(0, 5000 - elapsed);
+    if (remaining <= 0) {
+      set({ countdownMs: 0, countdownStartTime: null, status: 'playing' });
       // Signal start-playing to server
       if (state.attemptId) {
         startPlayingApi('sliding-puzzle', state.attemptId).then((res) => {
@@ -107,13 +112,13 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
         });
       }
     } else {
-      set({ countdownMs: newMs });
+      set({ countdownMs: remaining });
     }
   },
 
   beginPlaying: async () => {
     const state = get();
-    set({ status: 'playing', countdownMs: 0 });
+    set({ status: 'playing', countdownMs: 0, countdownStartTime: null });
     if (state.attemptId) {
       const res = await startPlayingApi('sliding-puzzle', state.attemptId);
       set({ startTime: new Date(res.startedAt).getTime(), isRunning: true });
@@ -219,6 +224,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
       maxDurationMs: 0,
       isRunning: false,
       countdownMs: 5000,
+      countdownStartTime: null,
       status: 'idle',
       result: null,
       error: null,

@@ -4,7 +4,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../database/prisma.service';
 import { GamesService } from '../games/games.service';
 import { LeaderboardsService } from '../leaderboards/leaderboards.service';
 import { getGameMaxDurationMs, isAttemptTimedOut } from '../games/attempt-timeout';

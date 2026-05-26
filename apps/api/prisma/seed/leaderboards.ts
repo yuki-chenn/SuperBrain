@@ -114,15 +114,15 @@ export const PCB_LEADERBOARD_CONFIGS: LbDef[] = [
     difficultyKey: d.difficultyKey,
     rankMetric: 'durationMs',
     rankDirection: 'ASC' as const,
+    // PCB ranks purely by completion time. errorCount / rounds are still
+    // tracked in attempt.metrics for game logic (error budget, replay) but
+    // are intentionally NOT used as tie-breakers and NOT shown on the board.
     tieBreakers: [
-      { metric: 'errorCount', direction: 'ASC' as const },
       { metric: 'completedAt', direction: 'ASC' as const },
     ],
     metadata: {
       displayColumns: [
         { metric: 'durationMs', label: '用时', format: 'duration' },
-        { metric: 'errorCount', label: '错误次数' },
-        { metric: 'rounds', label: '回合数' },
       ],
     },
   }))),
@@ -137,14 +137,12 @@ export const PCB_LEADERBOARD_CONFIGS: LbDef[] = [
     rankMetric: 'avgTimeLast10',
     rankDirection: 'ASC' as const,
     tieBreakers: [
-      { metric: 'completionCount', direction: 'DESC' as const },
       { metric: 'completedAt', direction: 'ASC' as const },
     ],
     metadata: {
       type: 'stats',
       displayColumns: [
         { metric: 'avgTimeLast10', label: '平均用时', format: 'duration' },
-        { metric: 'completionCount', label: '通关次数' },
       ],
     },
   }))),
@@ -154,7 +152,16 @@ export async function seedLeaderboards(prisma: PrismaClient, gameId: string, def
   for (const def of defs) {
     await prisma.leaderboardDefinition.upsert({
       where: { slug: def.slug },
-      update: { metadata: def.metadata as any },
+      // Update ALL fields on re-seed so config changes (rank metric, tie-breakers,
+      // display columns) propagate without manual SQL or DB resets.
+      update: {
+        name: def.name,
+        difficultyKey: def.difficultyKey,
+        rankMetric: def.rankMetric,
+        rankDirection: def.rankDirection,
+        tieBreakers: def.tieBreakers as any,
+        metadata: def.metadata as any,
+      },
       create: {
         gameId,
         slug: def.slug,

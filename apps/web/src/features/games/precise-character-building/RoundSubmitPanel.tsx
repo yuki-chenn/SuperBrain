@@ -11,9 +11,10 @@ export default function RoundSubmitPanel() {
   } = usePreciseCharacterStore();
 
   const picksPerRound = config?.picksPerRound || 4;
+  const filledRadicalCount = selectedRadicalKeys.filter((k) => k !== null).length;
   const canSubmit =
     status === 'playing' &&
-    selectedRadicalKeys.length === picksPerRound &&
+    filledRadicalCount === picksPerRound &&
     selectedCellIndices.length === picksPerRound;
 
   const cellLabels = selectedCellIndices.map(

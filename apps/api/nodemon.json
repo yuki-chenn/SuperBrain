@@ -1,0 +1,11 @@
+{
+  "watch": [
+    "src",
+    "../../packages/shared/dist",
+    "../../packages/game-engine/dist"
+  ],
+  "ext": "ts,js,json",
+  "ignore": ["**/*.spec.ts", "dist/**"],
+  "exec": "nest start",
+  "delay": 200
+}

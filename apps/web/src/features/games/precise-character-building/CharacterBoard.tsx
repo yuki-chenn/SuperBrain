@@ -30,6 +30,11 @@ export default function CharacterBoard() {
 
         if (isLit) {
           cellClass += 'bg-gradient-to-b from-amber-200 to-yellow-400 border-yellow-500 text-amber-900 ';
+          // Highlight the last cell of the previous successful round so the
+          // player sees where the next round's path must start adjacent to.
+          if (isCurrentPos) {
+            cellClass += 'ring-4 ring-orange-500 ring-offset-1 dark:ring-offset-gray-900 ';
+          }
         } else if (isSelected) {
           cellClass += 'bg-white border-blue-500 shadow-[0_0_0_3px_rgba(59,130,246,0.3)] text-gray-800 dark:bg-gray-800 dark:text-white ';
         } else if (isCurrentPos) {

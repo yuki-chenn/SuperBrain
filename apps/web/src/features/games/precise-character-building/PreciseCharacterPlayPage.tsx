@@ -5,6 +5,7 @@ import { GamePlayLayout } from '../../../components/game/GamePlayLayout';
 import { GameStage } from '../../../components/game/GameStage';
 import { GameHud } from '../../../components/game/GameHud';
 import { GameControlBar } from '../../../components/game/GameControlBar';
+import { GameTimeoutModal } from '../../../components/game/GameTimeoutModal';
 import { DifficultySelector } from '../../../components/game/DifficultySelector';
 import CharacterBoard from './CharacterBoard';
 import RadicalPool from './RadicalPool';
@@ -14,6 +15,7 @@ import PCBResultModal from './PCBResultModal';
 import PCBRulesPanel from './PCBRulesPanel';
 import { useAuthStore } from '../../auth/auth-store';
 import { PRECISE_CHARACTER_BUILDING_DIFFICULTIES } from '@brain-games/shared';
+import { formatDuration, formatChineseDuration } from '../../../lib/format';
 
 export default function PreciseCharacterPlayPage() {
   const navigate = useNavigate();
@@ -84,13 +86,6 @@ export default function PreciseCharacterPlayPage() {
     resetBoard();
   };
 
-  const formatTime = (ms: number) => {
-    const totalSec = Math.floor(ms / 1000);
-    const min = Math.floor(totalSec / 60);
-    const sec = totalSec % 60;
-    return `${min}:${sec.toString().padStart(2, '0')}`;
-  };
-
   const difficulties = PRECISE_CHARACTER_BUILDING_DIFFICULTIES.map((d) => ({
     key: d.key,
     label: d.label,
@@ -113,18 +108,17 @@ export default function PreciseCharacterPlayPage() {
           选择部首，重组汉字
         </p>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          最长时长：{formatTime(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
+          最长时长：{formatChineseDuration(maxDurationMs || selectedMaxDurationMs)}（超时自动失败）
         </p>
       </div>
 
       {(displayStatus === 'playing' || displayStatus === 'submitting') && (
         <GameHud
           items={[
-            { label: '用时', value: formatTime(elapsedMs), emphasize: true },
+            { label: '用时', value: formatDuration(elapsedMs), emphasize: true },
             { label: '错误', value: String(errorCount) },
             { label: '回合', value: `${currentRoundIndex + 1} / 9` },
             { label: '点亮', value: `${litCellIndices.length} / 36` },
-            { label: '上限', value: formatTime(maxDurationMs || selectedMaxDurationMs) },
           ]}
         />
       )}
@@ -157,7 +151,7 @@ export default function PreciseCharacterPlayPage() {
         </div>
       )}
       {status === 'timeout' && (
-        <p className="text-xs text-red-400">已超时，挑战失败（不计入成绩）</p>
+        <p className="sr-only">已超时，挑战失败（不计入成绩）</p>
       )}
     </div>
   );
@@ -200,13 +194,19 @@ export default function PreciseCharacterPlayPage() {
   return (
     <>
       <GamePlayLayout infoPanel={infoPanel} stage={stage} sidePanel={sidePanel} />
-      {showResult && result && (
+      {showResult && result && status !== 'timeout' && (
         <PCBResultModal
           result={result}
           onClose={() => setShowResult(false)}
           onRestart={handleRestart}
         />
       )}
+      <GameTimeoutModal
+        open={status === 'timeout'}
+        maxDurationMs={maxDurationMs || selectedMaxDurationMs}
+        onRestart={handleRestart}
+        onBackToGames={() => navigate({ to: '/games' })}
+      />
     </>
   );
 }

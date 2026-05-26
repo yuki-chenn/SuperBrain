@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 import { LIFE_GAME_DIFFICULTIES } from '@brain-games/shared';
 import type {
   GameAdapter,
@@ -7,7 +7,7 @@ import type {
   StartAttemptResult,
   FinishAttemptInput,
   FinishAttemptResult,
-} from '../../games/game-adapter.interface';
+} from '../game-adapter.interface';
 
 @Injectable()
 export class LifeGameAdapter implements GameAdapter {

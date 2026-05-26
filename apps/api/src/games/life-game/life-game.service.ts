@@ -5,7 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 import { LeaderboardsService } from '../../leaderboards/leaderboards.service';
 import {
   validateLocalCells,
@@ -15,7 +15,7 @@ import {
 } from '@brain-games/game-engine';
 import type { LocalCellCoord } from '@brain-games/game-engine';
 import { getLifeGameMaxDurationMs } from '@brain-games/shared';
-import { isAttemptTimedOut } from '../../games/attempt-timeout';
+import { isAttemptTimedOut } from '../attempt-timeout';
 
 interface LifePuzzleData {
   targetRegionIds: number[];
