@@ -164,7 +164,6 @@ export default function SlidingPuzzlePage() {
       <GameControlBar
         status={status === 'abandoned' || status === 'timeout' ? 'idle' : status}
         onStart={handleStart}
-        onRestart={handleRestart}
         isAuthenticated={isAuthenticated}
       />
 

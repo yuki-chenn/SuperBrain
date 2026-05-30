@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { DEFAULT_LIFE_BOUNDARY_RULE, LIFE_BOARD_HEIGHT, LIFE_BOARD_WIDTH } from '@brain-games/game-engine';
+import { DEFAULT_LIFE_BOUNDARY_RULE, LIFE_BOARD_HEIGHT, LIFE_BOARD_WIDTH, validateAbsoluteCommandPuzzle } from '@brain-games/game-engine';
 import { generateValidLifePuzzle } from './seed/life-puzzle-generator';
 import { GAME_LEADERBOARD_CONFIGS, PCB_LEADERBOARD_CONFIGS, seedLeaderboards } from './seed/leaderboards';
 import { COMBO_DATA, RADICAL_DATA, ROOT_DATA } from './seed/pcb-data';
 import { generatePCBPuzzle } from './seed/pcb-puzzle-generator';
+import { ABSOLUTE_COMMAND_PUZZLES } from './seed/absolute-command-data';
 
 const prisma = new PrismaClient();
 
@@ -27,6 +28,14 @@ async function main() {
       metadata: {
         tags: ['空间推理', '路径规划', '经典谜题'],
         estimatedDuration: '1-10 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 2 },
+          { key: 'memory', label: '记忆', value: 2 },
+          { key: 'spatial', label: '空间', value: 1 },
+          { key: 'creative', label: '创造', value: 3 },
+          { key: 'reasoning', label: '推理', value: 3 },
+          { key: 'calculation', label: '计算', value: 3 },
+        ],
       },
     },
     create: {
@@ -44,6 +53,14 @@ async function main() {
       metadata: {
         tags: ['空间推理', '路径规划', '经典谜题'],
         estimatedDuration: '1-10 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 2 },
+          { key: 'memory', label: '记忆', value: 2 },
+          { key: 'spatial', label: '空间', value: 1 },
+          { key: 'creative', label: '创造', value: 3 },
+          { key: 'reasoning', label: '推理', value: 3 },
+          { key: 'calculation', label: '计算', value: 3 },
+        ],
       },
     },
   });
@@ -67,6 +84,14 @@ async function main() {
       metadata: {
         tags: ['细胞自动机', '逻辑推演', '空间观察', '稳定状态'],
         estimatedDuration: '3-15 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 3 },
+          { key: 'memory', label: '记忆', value: 3 },
+          { key: 'spatial', label: '空间', value: 1 },
+          { key: 'creative', label: '创造', value: 2 },
+          { key: 'reasoning', label: '推理', value: 5 },
+          { key: 'calculation', label: '计算', value: 3 },
+        ],
       },
     },
     create: {
@@ -85,6 +110,14 @@ async function main() {
       metadata: {
         tags: ['细胞自动机', '逻辑推演', '空间观察', '稳定状态'],
         estimatedDuration: '3-15 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 3 },
+          { key: 'memory', label: '记忆', value: 3 },
+          { key: 'spatial', label: '空间', value: 1 },
+          { key: 'creative', label: '创造', value: 2 },
+          { key: 'reasoning', label: '推理', value: 5 },
+          { key: 'calculation', label: '计算', value: 3 },
+        ],
       },
     },
   });
@@ -208,6 +241,14 @@ async function main() {
       metadata: {
         tags: ['汉字结构', '逻辑推理', '路径规划', '工作记忆'],
         estimatedDuration: '5-15 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 3 },
+          { key: 'memory', label: '记忆', value: 2 },
+          { key: 'spatial', label: '空间', value: 1 },
+          { key: 'creative', label: '创造', value: 2 },
+          { key: 'reasoning', label: '推理', value: 5 },
+          { key: 'calculation', label: '计算', value: 2 },
+        ],
       },
     },
     create: {
@@ -226,6 +267,14 @@ async function main() {
       metadata: {
         tags: ['汉字结构', '逻辑推理', '路径规划', '工作记忆'],
         estimatedDuration: '5-15 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 3 },
+          { key: 'memory', label: '记忆', value: 2 },
+          { key: 'spatial', label: '空间', value: 1 },
+          { key: 'creative', label: '创造', value: 2 },
+          { key: 'reasoning', label: '推理', value: 5 },
+          { key: 'calculation', label: '计算', value: 2 },
+        ],
       },
     },
   });
@@ -279,6 +328,181 @@ async function main() {
         `Created PCB puzzle #${pcbPuzzleIndex}: ${config.difficultyKey} (seed=${chosenSeed}, radicals=${puzzle.radicalPool.map((r) => r.glyph).join('')})`,
       );
     }
+  }
+
+  // ─── Absolute Command ───────────────────────────────────────────────
+
+  console.log('\n--- Seeding Absolute Command ---');
+
+  const acGame = await prisma.game.upsert({
+    where: { slug: 'absolute-command' },
+    update: {
+      title: '绝对指令',
+      subtitle: '三维路径规划与绝对方向指令挑战',
+      description:
+        '在 8×8×3 的三维迷宫中，输入绝对方向指令控制角色移动。经过所有可访问方格即为完成，步数越少排名越高。',
+      source: '最强大脑第十三季第二期',
+      status: 'PUBLISHED',
+      difficultyLevels: [
+        { key: 'standard', label: '按题目选择' },
+      ],
+      metadata: {
+        tags: ['三维空间', '路径规划', '规则推演', '工作记忆'],
+        estimatedDuration: '5-40 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 3 },
+          { key: 'memory', label: '记忆', value: 1 },
+          { key: 'spatial', label: '空间', value: 5 },
+          { key: 'creative', label: '创造', value: 2 },
+          { key: 'reasoning', label: '推理', value: 4 },
+          { key: 'calculation', label: '计算', value: 2 },
+        ],
+      },
+    },
+    create: {
+      slug: 'absolute-command',
+      title: '绝对指令',
+      subtitle: '三维路径规划与绝对方向指令挑战',
+      description:
+        '在 8×8×3 的三维迷宫中，输入绝对方向指令控制角色移动。经过所有可访问方格即为完成，步数越少排名越高。',
+      source: '最强大脑第十三季第二期',
+      status: 'PUBLISHED',
+      difficultyLevels: [
+        { key: 'standard', label: '按题目选择' },
+      ],
+      metadata: {
+        tags: ['三维空间', '路径规划', '规则推演', '工作记忆'],
+        estimatedDuration: '5-40 min',
+        dimensions: [
+          { key: 'observe', label: '观察', value: 3 },
+          { key: 'memory', label: '记忆', value: 1 },
+          { key: 'spatial', label: '空间', value: 5 },
+          { key: 'creative', label: '创造', value: 2 },
+          { key: 'reasoning', label: '推理', value: 4 },
+          { key: 'calculation', label: '计算', value: 2 },
+        ],
+      },
+    },
+  });
+  console.log(`Created game: ${acGame.title} (${acGame.slug})`);
+
+  // Seed puzzles
+  for (const puzzleData of ABSOLUTE_COMMAND_PUZZLES) {
+    // Validate the puzzle
+    const snapshot = {
+      puzzleId: 'temp',
+      puzzleVersion: 1,
+      size: puzzleData.size,
+      startCoord: puzzleData.startCoord,
+      cells: puzzleData.cells,
+    };
+    const solution = puzzleData.referenceSolution.length > 0 ? puzzleData.referenceSolution : undefined;
+    const validation = validateAbsoluteCommandPuzzle(snapshot, solution);
+    if (!validation.valid) {
+      console.log(`Skipping puzzle ${puzzleData.slug}: validation failed`, validation.errors);
+      continue;
+    }
+
+    const puzzle = await prisma.absoluteCommandPuzzle.upsert({
+      where: { slug: puzzleData.slug },
+      update: {
+        title: puzzleData.title,
+        description: puzzleData.description,
+        difficultyLabel: puzzleData.difficultyLabel,
+        estimatedDuration: puzzleData.estimatedDuration,
+        optimalCommandCount: puzzleData.optimalCommandCount,
+        season: puzzleData.season,
+        episode: puzzleData.episode,
+        source: puzzleData.source,
+        status: 'PUBLISHED',
+      },
+      create: {
+        gameId: acGame.id,
+        slug: puzzleData.slug,
+        title: puzzleData.title,
+        description: puzzleData.description,
+        difficultyLabel: puzzleData.difficultyLabel,
+        estimatedDuration: puzzleData.estimatedDuration,
+        optimalCommandCount: puzzleData.optimalCommandCount,
+        season: puzzleData.season,
+        episode: puzzleData.episode,
+        source: puzzleData.source,
+        status: 'PUBLISHED',
+      },
+    });
+
+    // Create or update puzzle version
+    const existingVersion = await prisma.absoluteCommandPuzzleVersion.findFirst({
+      where: { puzzleId: puzzle.id },
+      orderBy: { version: 'desc' },
+    });
+
+    const versionNumber = existingVersion ? existingVersion.version + 1 : 1;
+    await prisma.absoluteCommandPuzzleVersion.create({
+      data: {
+        puzzleId: puzzle.id,
+        version: versionNumber,
+        size: puzzleData.size as any,
+        startCoord: puzzleData.startCoord as any,
+        cells: puzzleData.cells as any,
+        referenceSolution: solution as any,
+        validationStatus: validation.valid ? 'VALID' : 'INVALID',
+        validationReport: validation as any,
+      },
+    });
+
+    // Update currentVersionId
+    await prisma.absoluteCommandPuzzle.update({
+      where: { id: puzzle.id },
+      data: { currentVersionId: puzzle.id },
+    });
+
+    // Create per-puzzle leaderboard
+    const lbSlug = `ac-${puzzleData.slug}-fastest`;
+    const lbName = `绝对指令 · ${puzzleData.title.replace('绝对指令 · ', '')} 最快通关榜`;
+    await prisma.leaderboardDefinition.upsert({
+      where: { slug: lbSlug },
+      update: {
+        name: lbName,
+        puzzleId: puzzle.id,
+        rankMetric: 'commandCount',
+        rankDirection: 'ASC',
+        tieBreakers: [
+          { metric: 'durationMs', direction: 'ASC' },
+          { metric: 'completedAt', direction: 'ASC' },
+        ] as any,
+        metadata: {
+          displayColumns: [
+            { metric: 'commandCount', label: '步数' },
+            { metric: 'durationMs', label: '用时', format: 'duration' },
+            { metric: 'travelDistance', label: '距离' },
+          ],
+        } as any,
+      },
+      create: {
+        gameId: acGame.id,
+        slug: lbSlug,
+        name: lbName,
+        scope: 'GLOBAL',
+        puzzleId: puzzle.id,
+        rankMetric: 'commandCount',
+        rankDirection: 'ASC',
+        tieBreakers: [
+          { metric: 'durationMs', direction: 'ASC' },
+          { metric: 'completedAt', direction: 'ASC' },
+        ],
+        entryPolicy: 'BEST_PER_USER',
+        metadata: {
+          displayColumns: [
+            { metric: 'commandCount', label: '步数' },
+            { metric: 'durationMs', label: '用时', format: 'duration' },
+            { metric: 'travelDistance', label: '距离' },
+          ],
+        } as any,
+      },
+    });
+
+    console.log(`Created absolute-command puzzle: ${puzzleData.title} (${puzzleData.slug})`);
   }
 
   const demoPasswordHash = await argon2.hash('Demo123456', {

@@ -27,7 +27,7 @@ export const FinishAttemptRequestSchema = z.object({
 
 export const FinishAttemptResponseSchema = z.object({
   attemptId: z.string(),
-  status: z.enum(['COMPLETED', 'INVALID']),
+  status: z.enum(['COMPLETED', 'FAILED']),
   metrics: z.record(z.unknown()).optional(),
   leaderboardUpdated: z.boolean().optional(),
   personalBest: z.boolean().optional(),

@@ -3,7 +3,7 @@ import { Button } from '../ui/Button';
 interface GameControlBarProps {
   status: string;
   onStart: () => void;
-  onRestart: () => void;
+  onRestart?: () => void;
   isAuthenticated?: boolean;
   restartLabel?: string;
 }
@@ -37,6 +37,7 @@ export function GameControlBar({
   }
 
   if (status === 'countdown' || status === 'playing' || status === 'submitting') {
+    if (!onRestart) return null;
     return (
       <Button variant="secondary" size="md" onClick={onRestart} className="w-full">
         {restartLabel}
@@ -45,6 +46,7 @@ export function GameControlBar({
   }
 
   if (status === 'completed' || status === 'submitted') {
+    if (!onRestart) return null;
     return (
       <Button variant="primary" size="lg" onClick={onRestart} className="w-full">
         再来一局

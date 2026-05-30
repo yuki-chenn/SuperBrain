@@ -6,8 +6,10 @@ import { UsersModule } from './users/users.module';
 import { GamesModule } from './games/games.module';
 import { LifeGameModule } from './games/life-game/life-game.module';
 import { PreciseCharacterGameModule } from './games/precise-character-building/precise-character-game.module';
+import { AbsoluteCommandModule } from './games/absolute-command/absolute-command.module';
 import { AttemptsModule } from './attempts/attempts.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -18,8 +20,10 @@ import { LeaderboardsModule } from './leaderboards/leaderboards.module';
     GamesModule,
     LifeGameModule,
     PreciseCharacterGameModule,
+    AbsoluteCommandModule,
     AttemptsModule,
     LeaderboardsModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

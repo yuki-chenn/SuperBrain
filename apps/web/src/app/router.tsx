@@ -11,6 +11,9 @@ import SlidingPuzzlePage from '../features/games/sliding-puzzle/SlidingPuzzlePag
 import LifeGamePlayPage from '../features/games/life-game/LifeGamePlayPage';
 import LifePracticeRoom from '../features/games/life-game/LifePracticeRoom';
 import PreciseCharacterPlayPage from '../features/games/precise-character-building/PreciseCharacterPlayPage';
+import AbsoluteCommandPuzzleListPage from '../features/games/absolute-command/AbsoluteCommandPuzzleListPage';
+import AbsoluteCommandPuzzleDetailPage from '../features/games/absolute-command/AbsoluteCommandPuzzleDetailPage';
+import AbsoluteCommandPlayPage from '../features/games/absolute-command/AbsoluteCommandPlayPage';
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -102,6 +105,37 @@ const pcbPlayRoute = createRoute({
   ),
 });
 
+// Absolute Command routes
+const acPuzzleListRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/absolute-command',
+  component: () => (
+    <ProtectedRoute>
+      <AbsoluteCommandPuzzleListPage />
+    </ProtectedRoute>
+  ),
+});
+
+const acPuzzleDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/absolute-command/puzzles/$puzzleSlug',
+  component: () => (
+    <ProtectedRoute>
+      <AbsoluteCommandPuzzleDetailPage />
+    </ProtectedRoute>
+  ),
+});
+
+const acPlayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/absolute-command/puzzles/$puzzleSlug/play',
+  component: () => (
+    <ProtectedRoute>
+      <AbsoluteCommandPlayPage />
+    </ProtectedRoute>
+  ),
+});
+
 const leaderboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/games/$slug/leaderboards',
@@ -122,6 +156,9 @@ const routeTree = rootRoute.addChildren([
   lifeGameRoute,
   lifePracticeRoute,
   pcbPlayRoute,
+  acPuzzleListRoute,
+  acPuzzleDetailRoute,
+  acPlayRoute,
   leaderboardRoute,
 ]);
 

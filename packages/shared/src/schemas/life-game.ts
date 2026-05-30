@@ -51,7 +51,7 @@ export const SubmitLifeRegionResponseSchema = z.object({
 
 export const GetLifeAttemptResponseSchema = z.object({
   attemptId: z.string(),
-  status: z.enum(['STARTED', 'COMPLETED', 'ABANDONED', 'INVALID']),
+  status: z.enum(['STARTED', 'COMPLETED', 'FAILED']),
   difficultyKey: z.string(),
   width: z.number().int(),
   height: z.number().int(),

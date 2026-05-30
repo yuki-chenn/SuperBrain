@@ -241,7 +241,7 @@ export const useSlidingPuzzleStore = create<SlidingPuzzleStore>((set, get) => ({
         moveTrace: state.moveTrace,
         clientDurationMs: state.elapsedMs,
       });
-      if (result.status === 'INVALID' && result.reason === 'TIMEOUT') {
+      if (result.status === 'FAILED' && result.reason === 'TIMEOUT') {
         set({
           status: 'timeout',
           result: null,

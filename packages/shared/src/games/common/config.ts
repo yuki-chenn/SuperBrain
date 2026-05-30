@@ -2,6 +2,7 @@ export const GAME_SLUGS = {
   SLIDING_PUZZLE: 'sliding-puzzle',
   LIFE_GAME: 'life-game',
   PRECISE_CHARACTER_BUILDING: 'precise-character-building',
+  ABSOLUTE_COMMAND: 'absolute-command',
 } as const;
 
 export const DIFFICULTY_KEYS = {

@@ -266,7 +266,7 @@ export const useLifeGameStore = create<LifeGameStore>((set, get) => ({
       );
 
       const isCompleted = res.status === 'COMPLETED';
-      const isTimeout = res.status === 'INVALID';
+      const isTimeout = res.status === 'FAILED';
       const serverDurationMs = (res.metrics as any)?.durationMs;
       const elapsedMs =
         isCompleted && serverDurationMs

@@ -4,6 +4,7 @@ import type { GameAdapter } from './game-adapter.interface';
 import { SlidingPuzzleAdapter } from './sliding-puzzle/sliding-puzzle.adapter';
 import { LifeGameAdapter } from './life-game/life-game.adapter';
 import { PreciseCharacterBuildingAdapter } from './precise-character-building/precise-character-building.adapter';
+import { AbsoluteCommandAdapter } from './absolute-command/absolute-command.adapter';
 
 @Injectable()
 export class GamesService {
@@ -14,10 +15,12 @@ export class GamesService {
     slidingPuzzleAdapter: SlidingPuzzleAdapter,
     lifeGameAdapter: LifeGameAdapter,
     pcbAdapter: PreciseCharacterBuildingAdapter,
+    absoluteCommandAdapter: AbsoluteCommandAdapter,
   ) {
     this.adapters.set(slidingPuzzleAdapter.slug, slidingPuzzleAdapter);
     this.adapters.set(lifeGameAdapter.slug, lifeGameAdapter);
     this.adapters.set(pcbAdapter.slug, pcbAdapter);
+    this.adapters.set(absoluteCommandAdapter.slug, absoluteCommandAdapter);
   }
 
   async findAll(status = 'PUBLISHED') {

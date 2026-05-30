@@ -91,3 +91,5 @@ export type PCBState = z.infer<typeof PCBStateSchema>;
 export type GetPCBAttemptResponse = z.infer<typeof GetPCBAttemptResponseSchema>;
 export type AbandonPCBAttemptResponse = z.infer<typeof AbandonPCBAttemptResponseSchema>;
 export type ResetPCBAttemptResponse = z.infer<typeof ResetPCBAttemptResponseSchema>;
+
+// Absolute Command Admin - types are exported directly from schemas/absolute-command-admin.ts

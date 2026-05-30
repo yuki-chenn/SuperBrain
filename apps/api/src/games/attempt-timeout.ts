@@ -2,6 +2,7 @@ import {
   getSlidingPuzzleMaxDurationMs,
   getLifeGameMaxDurationMs,
   getPCBMaxDurationMs,
+  getAbsoluteCommandMaxDurationMs,
 } from '@brain-games/shared';
 
 export function getGameMaxDurationMs(gameSlug: string, difficultyKey: string): number {
@@ -13,6 +14,9 @@ export function getGameMaxDurationMs(gameSlug: string, difficultyKey: string): n
   }
   if (gameSlug === 'precise-character-building') {
     return getPCBMaxDurationMs(difficultyKey);
+  }
+  if (gameSlug === 'absolute-command') {
+    return getAbsoluteCommandMaxDurationMs(difficultyKey);
   }
   throw new Error(`Unsupported game slug: ${gameSlug}`);
 }

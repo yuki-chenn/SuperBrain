@@ -26,8 +26,7 @@ enum GameStatus {
 enum AttemptStatus {
   STARTED
   COMPLETED
-  INVALID
-  ABANDONED
+  FAILED
 }
 
 enum RankDirection {
@@ -59,11 +58,12 @@ model User {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  attempts         GameAttempt[]
-  entries          LeaderboardEntry[]
-  sessions         Session[]
-  lifeSubmissions  LifeRegionSubmission[]
-  pcbSubmissions   PreciseCharacterRoundSubmission[]
+  attempts              GameAttempt[]
+  entries               LeaderboardEntry[]
+  sessions              Session[]
+  lifeSubmissions       LifeRegionSubmission[]
+  pcbSubmissions        PreciseCharacterRoundSubmission[]
+  absoluteCommandLogs   AbsoluteCommandLog[]
 }
 
 model Session {
@@ -102,10 +102,11 @@ model Game {
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
-  attempts     GameAttempt[]
-  leaderboards LeaderboardDefinition[]
-  lifePuzzles  LifePuzzle[]
-  pcbPuzzles   PreciseCharacterPuzzle[]
+  attempts              GameAttempt[]
+  leaderboards          LeaderboardDefinition[]
+  lifePuzzles           LifePuzzle[]
+  pcbPuzzles            PreciseCharacterPuzzle[]
+  absoluteCommandPuzzles AbsoluteCommandPuzzle[]
 }
 
 model GameAttempt {
@@ -126,15 +127,18 @@ model GameAttempt {
   invalidReason String?
   createdAt     DateTime      @default(now())
 
-  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  game           Game                  @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  entries        LeaderboardEntry[]
-  lifePuzzle     LifePuzzle?           @relation(fields: [lifePuzzleId], references: [id])
-  lifePuzzleId   String?
-  lifeSubmissions LifeRegionSubmission[]
-  pcbPuzzle      PreciseCharacterPuzzle? @relation(fields: [pcbPuzzleId], references: [id])
-  pcbPuzzleId    String?
-  pcbSubmissions PreciseCharacterRoundSubmission[]
+  user                      User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game                      Game                        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  entries                   LeaderboardEntry[]
+  lifePuzzle                LifePuzzle?                 @relation(fields: [lifePuzzleId], references: [id])
+  lifePuzzleId              String?
+  lifeSubmissions           LifeRegionSubmission[]
+  pcbPuzzle                 PreciseCharacterPuzzle?     @relation(fields: [pcbPuzzleId], references: [id])
+  pcbPuzzleId               String?
+  pcbSubmissions            PreciseCharacterRoundSubmission[]
+  absoluteCommandPuzzle     AbsoluteCommandPuzzle?      @relation(fields: [absoluteCommandPuzzleId], references: [id])
+  absoluteCommandPuzzleId   String?
+  absoluteCommandLogs       AbsoluteCommandLog[]
 
   @@index([userId, gameId, difficultyKey, status])
   @@index([gameId, difficultyKey, status, rankValue])
@@ -147,6 +151,7 @@ model LeaderboardDefinition {
   name          String
   scope         LeaderboardScope  @default(GLOBAL)
   difficultyKey String?
+  puzzleId      String?
   rankMetric    String
   rankDirection RankDirection
   tieBreakers   Json              @default("[]")
@@ -158,6 +163,7 @@ model LeaderboardDefinition {
   entries LeaderboardEntry[]
 
   @@index([gameId, difficultyKey])
+  @@index([puzzleId])
 }
 
 model LeaderboardEntry {
@@ -305,4 +311,97 @@ model PreciseCharacterRoundSubmission {
   @@index([attemptId])
   @@index([userId])
   @@index([attemptId, roundIndex])
+}
+
+// ─── Absolute Command ────────────────────────────────────────────────
+
+model AbsoluteCommandPuzzle {
+  id                  String   @id @default(cuid())
+  gameId              String
+  slug                String   @unique
+  title               String
+  description         String?
+  difficultyLabel     String?
+  season              Int      @default(13)
+  episode             Int      @default(2)
+  source              String?
+  status              String   @default("DRAFT")
+  currentVersionId    String?
+  publishedAt         DateTime?
+  maxDurationMs       Int      @default(3600000)
+  estimatedDuration   String?
+  optimalCommandCount Int?
+  metadata            Json     @default("{}")
+  createdByUserId     String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  game     Game                      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  versions AbsoluteCommandPuzzleVersion[]
+  attempts GameAttempt[]
+
+  @@index([status])
+  @@index([difficultyLabel])
+}
+
+model AbsoluteCommandPuzzleVersion {
+  id                String   @id @default(cuid())
+  puzzleId          String
+  version           Int
+  size              Json
+  startCoord        Json
+  cells             Json
+  referenceSolution Json?
+  validationStatus  String   @default("UNVALIDATED")
+  validationReport  Json     @default("{}")
+  createdByUserId   String?
+  createdAt         DateTime @default(now())
+
+  puzzle AbsoluteCommandPuzzle @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+
+  @@unique([puzzleId, version])
+  @@index([puzzleId])
+}
+
+model AbsoluteCommandLog {
+  id             String   @id @default(cuid())
+  attemptId      String
+  userId         String
+  index          Int
+  direction      String
+  fromCoord      Json
+  toCoord        Json
+  path           Json
+  stopReason     String
+  changedCells   Json     @default("[]")
+  snapshotBefore Json?
+  snapshotAfter  Json?
+  createdAt      DateTime @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId])
+  @@unique([attemptId, index])
+}
+
+// ─── Admin Audit Log ────────────────────────────────────────────────
+
+model AdminAuditLog {
+  id            String   @id @default(cuid())
+  actorUserId   String?
+  actorUsername String?
+  action        String
+  resourceType  String
+  resourceId    String?
+  before        Json?
+  after         Json?
+  metadata      Json     @default("{}")
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
 }

@@ -7,3 +7,5 @@ export * from './schemas/attempts.js';
 export * from './schemas/leaderboards.js';
 export * from './schemas/life-game.js';
 export * from './schemas/precise-character-building.js';
+export * from './schemas/absolute-command.js';
+export * from './schemas/absolute-command-admin.js';

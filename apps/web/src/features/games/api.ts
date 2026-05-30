@@ -68,7 +68,7 @@ export async function abandonAttemptApi(
 export async function timeoutAttemptApi(
   slug: string,
   attemptId: string,
-): Promise<{ success: boolean; status: 'INVALID'; reason: 'TIMEOUT' }> {
+): Promise<{ success: boolean; status: 'FAILED'; reason: 'TIMEOUT' }> {
   return apiRequest(`/games/${slug}/attempts/${attemptId}/timeout`, {
     method: 'POST',
   });

@@ -12,10 +12,16 @@ export class LeaderboardsService {
   constructor(private prisma: PrismaService) {}
 
   async recordAttemptResult(attempt: GameAttempt): Promise<{ updated: boolean }> {
+    // For puzzle-specific leaderboards (e.g., absolute-command), also match by puzzleId
+    const puzzleId = (attempt as any).absoluteCommandPuzzleId || null;
+
     const definitions = await this.prisma.leaderboardDefinition.findMany({
       where: {
         gameId: attempt.gameId,
-        difficultyKey: attempt.difficultyKey,
+        OR: [
+          { difficultyKey: attempt.difficultyKey },
+          ...(puzzleId ? [{ puzzleId }] : []),
+        ],
       },
     });
 

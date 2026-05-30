@@ -66,7 +66,7 @@ export class LifeGameService {
       await this.prisma.gameAttempt.update({
         where: { id: attemptId },
         data: {
-          status: 'INVALID',
+          status: 'FAILED',
           invalidReason: 'TIMEOUT',
           completedAt: new Date(),
         },
@@ -182,7 +182,7 @@ export class LifeGameService {
         await this.prisma.gameAttempt.update({
           where: { id: attemptId },
           data: {
-            status: 'INVALID',
+            status: 'FAILED',
             invalidReason: 'TOO_MANY_ERRORS',
             completedAt: new Date(),
           },
@@ -236,7 +236,7 @@ export class LifeGameService {
       const timedOut = await this.prisma.gameAttempt.update({
         where: { id: attemptId },
         data: {
-          status: 'INVALID',
+          status: 'FAILED',
           invalidReason: 'TIMEOUT',
           completedAt: new Date(),
         },
@@ -341,7 +341,7 @@ export class LifeGameService {
     await this.prisma.gameAttempt.update({
       where: { id: attemptId },
       data: {
-        status: 'ABANDONED',
+        status: 'FAILED',
         completedAt: new Date(),
       },
     });
@@ -356,8 +356,8 @@ export class LifeGameService {
 
     if (!attempt) throw new NotFoundException('Attempt not found');
     if (attempt.userId !== userId) throw new NotFoundException('Attempt not found');
-    if (attempt.status === 'INVALID' && attempt.invalidReason === 'TIMEOUT') {
-      return { success: true, status: 'INVALID', reason: 'TIMEOUT' as const };
+    if (attempt.status === 'FAILED' && attempt.invalidReason === 'TIMEOUT') {
+      return { success: true, status: 'FAILED', reason: 'TIMEOUT' as const };
     }
     if (attempt.status !== 'STARTED') {
       throw new ConflictException('Attempt already finished');
@@ -371,12 +371,12 @@ export class LifeGameService {
     await this.prisma.gameAttempt.update({
       where: { id: attemptId },
       data: {
-        status: 'INVALID',
+        status: 'FAILED',
         invalidReason: 'TIMEOUT',
         completedAt: new Date(),
       },
     });
 
-    return { success: true, status: 'INVALID', reason: 'TIMEOUT' as const };
+    return { success: true, status: 'FAILED', reason: 'TIMEOUT' as const };
   }
 }

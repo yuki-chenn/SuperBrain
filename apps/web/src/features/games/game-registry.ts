@@ -22,4 +22,9 @@ export const webGameRegistry: Record<string, WebGameDefinition> = {
     playRoute: '/games/precise-character-building/play',
     component: lazy(() => import('./precise-character-building/PreciseCharacterPlayPage')),
   },
+  'absolute-command': {
+    slug: 'absolute-command',
+    playRoute: '/games/absolute-command',
+    component: lazy(() => import('./absolute-command/AbsoluteCommandPuzzleListPage')),
+  },
 };

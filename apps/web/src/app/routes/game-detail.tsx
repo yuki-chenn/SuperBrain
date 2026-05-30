@@ -14,6 +14,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { BrainDimensionPanel } from '../../components/game/BrainDimensionPanel';
 import { DifficultySelector } from '../../components/game/DifficultySelector';
 import { LeaderboardPreviewPanel } from '../../components/game/LeaderboardPreviewPanel';
+import type { GameDimension } from '../../features/games/config/types';
 
 export function GameDetailPage() {
   const navigate = useNavigate();
@@ -74,7 +75,8 @@ export function GameDetailPage() {
   const difficulties = (game.difficultyLevels as any[]) || [];
   const tags = (game.metadata as any)?.tags || [];
   const duration = (game.metadata as any)?.estimatedDuration;
-  const dimensions = GAME_DIMENSIONS[game.slug] || [];
+  const metaDimensions = (game.metadata as any)?.dimensions as GameDimension[] | undefined;
+  const dimensions = (metaDimensions && metaDimensions.length > 0) ? metaDimensions : (GAME_DIMENSIONS[game.slug] || []);
 
   if (!selectedDifficulty && difficulties.length > 0) {
     setSelectedDifficulty(difficulties[0].key);

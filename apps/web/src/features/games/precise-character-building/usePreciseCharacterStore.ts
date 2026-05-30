@@ -291,9 +291,9 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
           ? 'playing'
           : res.status === 'COMPLETED'
             ? 'completed'
-            : res.status === 'INVALID'
+            : res.status === 'FAILED'
               ? 'timeout'
-            : res.status === 'ABANDONED'
+            : res.status === 'FAILED'
               ? 'abandoned'
               : 'idle';
 
@@ -317,7 +317,7 @@ export const usePreciseCharacterStore = create<PCBStore>((set, get) => ({
         litResults: res.litResults as LitResult[],
         selectedRadicalKeys: Array.from({ length: picks }, () => null),
         selectedCellIndices: [],
-        elapsedMs: res.status === 'INVALID' ? res.maxDurationMs : recoveredResult?.durationMs ?? 0,
+        elapsedMs: res.status === 'FAILED' ? res.maxDurationMs : recoveredResult?.durationMs ?? 0,
         startTime: res.status === 'STARTED' ? new Date(res.startedAt).getTime() : null,
         maxDurationMs: res.maxDurationMs,
         result: recoveredResult,

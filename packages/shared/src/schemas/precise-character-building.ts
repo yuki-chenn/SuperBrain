@@ -92,7 +92,7 @@ export const PCBStateSchema = z.object({
 
 export const GetPCBAttemptResponseSchema = z.object({
   attemptId: z.string(),
-  status: z.enum(['STARTED', 'COMPLETED', 'ABANDONED', 'INVALID']),
+  status: z.enum(['STARTED', 'COMPLETED', 'FAILED']),
   difficultyKey: z.string(),
   maxDurationMs: z.number().int().positive(),
   boardSize: z.number().int(),

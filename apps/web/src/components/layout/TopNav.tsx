@@ -46,6 +46,16 @@ export function TopNav() {
 
           {status === 'authenticated' && user ? (
             <div className="flex items-center gap-4">
+              {user.role === 'ADMIN' && (
+                <a
+                  href="http://localhost:5174"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[var(--sb-text-muted)] hover:text-[var(--sb-primary)] no-underline transition-colors"
+                >
+                  管理后台
+                </a>
+              )}
               <span className="text-sm text-[var(--sb-text-muted)]">{user.username}</span>
               <button
                 onClick={() => logout.mutate()}
@@ -100,6 +110,17 @@ export function TopNav() {
           </Link>
           {status === 'authenticated' && user ? (
             <>
+              {user.role === 'ADMIN' && (
+                <a
+                  href="http://localhost:5174"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block text-sm text-[var(--sb-text-muted)] hover:text-[var(--sb-primary)] no-underline py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  管理后台
+                </a>
+              )}
               <span className="block text-sm text-[var(--sb-text-muted)] py-2">{user.username}</span>
               <button
                 onClick={() => { logout.mutate(); setMobileMenuOpen(false); }}
