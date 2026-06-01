@@ -14,6 +14,11 @@ import PreciseCharacterPlayPage from '../features/games/precise-character-buildi
 import AbsoluteCommandPuzzleListPage from '../features/games/absolute-command/AbsoluteCommandPuzzleListPage';
 import AbsoluteCommandPuzzleDetailPage from '../features/games/absolute-command/AbsoluteCommandPuzzleDetailPage';
 import AbsoluteCommandPlayPage from '../features/games/absolute-command/AbsoluteCommandPlayPage';
+import { ChallengeStartPage } from '../challenge/components/ChallengeStartPage';
+import { ChallengePlayHost } from '../challenge/components/ChallengePlayHost';
+import { ChallengeResultPage } from '../challenge/components/ChallengeResultPage';
+import { ChallengeExpiredPage } from '../challenge/components/ChallengeExpiredPage';
+
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -136,6 +141,63 @@ const acPlayRoute = createRoute({
   ),
 });
 
+
+// ─── Challenge Runtime Gateway routes (Change 3) ────────────────────
+const challengeStartRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/$gameSlug/start',
+  component: function StartPageWrapper() {
+    const { gameSlug } = challengeStartRoute.useParams();
+    return (
+      <ProtectedRoute>
+        <ChallengeStartPage gameSlug={gameSlug} />
+      </ProtectedRoute>
+    );
+  },
+});
+
+const challengePlayRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/$gameSlug/attempts/$attemptId/play',
+  validateSearch: (search: Record<string, unknown>) => ({ token: (search.token as string) ?? null }),
+  component: function PlayPageWrapper() {
+    const { gameSlug, attemptId } = challengePlayRoute.useParams();
+    const { token } = challengePlayRoute.useSearch();
+    return (
+      <ProtectedRoute>
+        <ChallengePlayHost gameSlug={gameSlug} attemptId={attemptId} token={token ?? null} />
+      </ProtectedRoute>
+    );
+  },
+});
+
+const challengeResultRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/$gameSlug/attempts/$attemptId/result',
+  component: function ResultPageWrapper() {
+    const { gameSlug, attemptId } = challengeResultRoute.useParams();
+    return (
+      <ProtectedRoute>
+        <ChallengeResultPage gameSlug={gameSlug} attemptId={attemptId} />
+      </ProtectedRoute>
+    );
+  },
+});
+
+const challengeExpiredRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/games/$gameSlug/attempts/$attemptId/expired',
+  validateSearch: (search: Record<string, unknown>) => ({ reason: (search.reason as string) ?? undefined }),
+  component: function ExpiredPageWrapper() {
+    const { gameSlug } = challengeExpiredRoute.useParams();
+    return (
+      <ProtectedRoute>
+        <ChallengeExpiredPage gameSlug={gameSlug} />
+      </ProtectedRoute>
+    );
+  },
+});
+
 const leaderboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/games/$slug/leaderboards',
@@ -160,6 +222,10 @@ const routeTree = rootRoute.addChildren([
   acPuzzleDetailRoute,
   acPlayRoute,
   leaderboardRoute,
+  challengeStartRoute,
+  challengePlayRoute,
+  challengeResultRoute,
+  challengeExpiredRoute,
 ]);
 
 export const router = createRouter({ routeTree });

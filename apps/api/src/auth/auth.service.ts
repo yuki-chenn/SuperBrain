@@ -7,7 +7,8 @@ import {
 import * as argon2 from 'argon2';
 import { UsersService } from '../users/users.service';
 import { TokenService } from './token.service';
-import { SessionService } from './session.service';
+import { AuthSessionService } from './auth-session.service';
+import { PermissionService } from './permission.service';
 
 interface RequestContext {
   userAgent?: string;
@@ -19,96 +20,87 @@ export class AuthService {
   constructor(
     private users: UsersService,
     private tokenService: TokenService,
-    private sessionService: SessionService,
+    private sessionService: AuthSessionService,
+    private permissions: PermissionService,
   ) {}
 
   async register(dto: { email: string; username: string; password: string }, ctx?: RequestContext) {
-    const existingEmail = await this.users.findByEmail(dto.email);
-    if (existingEmail) throw new ConflictException('Email already registered');
-
-    const existingUsername = await this.users.findByUsername(dto.username);
-    if (existingUsername) throw new ConflictException('Username already taken');
-
+    if (await this.users.findByEmail(dto.email)) {
+      throw new ConflictException({ error: 'email-taken' });
+    }
+    if (await this.users.findByUsername(dto.username)) {
+      throw new ConflictException({ error: 'username-taken' });
+    }
     const passwordHash = await argon2.hash(dto.password, { type: argon2.argon2id });
     const user = await this.users.create({
       email: dto.email,
       username: dto.username,
       passwordHash,
     });
-
-    const { session, rawRefreshToken } = await this.sessionService.createSession(user.id, ctx);
-    const accessToken = this.tokenService.signAccessToken({
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      sessionId: session.id,
-    });
-
-    return {
-      user: this.sanitizeUser(user),
-      accessToken,
-      refreshToken: rawRefreshToken,
-    };
+    return this.issueSession(user, ctx);
   }
 
   async login(dto: { emailOrUsername: string; password: string }, ctx?: RequestContext) {
     const user = await this.users.findByEmailOrUsername(dto.emailOrUsername);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-
-    if (user.status !== 'ACTIVE') {
-      throw new ForbiddenException('User is not active');
-    }
+    if (!user) throw new UnauthorizedException({ error: 'invalid-credentials' });
+    if (user.status === 'BANNED') throw new ForbiddenException({ error: 'account-banned' });
+    if (user.status === 'DELETED') throw new UnauthorizedException({ error: 'invalid-credentials' });
 
     const valid = await argon2.verify(user.passwordHash, dto.password);
-    if (!valid) throw new UnauthorizedException('Invalid credentials');
+    if (!valid) throw new UnauthorizedException({ error: 'invalid-credentials' });
 
     await this.users.updateLastLoginAt(user.id);
-
-    const { session, rawRefreshToken } = await this.sessionService.createSession(user.id, ctx);
-    const accessToken = this.tokenService.signAccessToken({
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      sessionId: session.id,
-    });
-
-    return {
-      user: this.sanitizeUser(user),
-      accessToken,
-      refreshToken: rawRefreshToken,
-    };
+    return this.issueSession(user, ctx);
   }
 
   async refresh(rawToken: string, ctx?: RequestContext) {
-    if (!rawToken) throw new UnauthorizedException('AUTH_REFRESH_TOKEN_MISSING');
+    if (!rawToken) throw new UnauthorizedException({ error: 'refresh-missing' });
 
-    const { session, shouldRevokeFamily, familyId } =
-      await this.sessionService.findValidSessionByRefreshToken(rawToken);
+    const result = await this.sessionService.findValidSessionByRefreshToken(rawToken);
 
-    if (!session) {
-      if (shouldRevokeFamily && familyId) {
-        await this.sessionService.revokeFamily(familyId, 'REUSE_DETECTED');
+    // Grace window: replay returns the just-rotated new session's tokens.
+    if (!result.session && (result as any).recentRotation) {
+      const newSession = (result as any).recentRotation;
+      const accessToken = this.tokenService.signAccessToken({
+        sub: newSession.userId,
+        sid: newSession.id,
+      });
+      const permissionKeys = await this.permissions.getUserPermissionKeys(newSession.userId);
+      // Note: we can't reissue the SAME refresh token (we don't store it plaintext).
+      // Returning the new session id allows the client to keep its replaced-by cookie if any.
+      return {
+        user: this.sanitize(newSession.user, permissionKeys),
+        accessToken,
+        refreshToken: undefined,
+      };
+    }
+
+    if (!result.session) {
+      if (result.shouldRevokeFamily && result.familyId) {
+        await this.sessionService.revokeFamily(result.familyId, 'family-compromised');
       }
-      throw new UnauthorizedException('AUTH_REFRESH_TOKEN_INVALID');
+      throw new UnauthorizedException({ error: 'family-compromised' });
     }
 
-    if (session.user.status !== 'ACTIVE') {
-      await this.sessionService.revokeSession(session.id, 'USER_BANNED');
-      throw new UnauthorizedException('User is not active');
+    if (result.session.user.status !== 'ACTIVE') {
+      await this.sessionService.revokeSession(result.session.id, 'user-not-active');
+      throw new UnauthorizedException({ error: 'account-not-active' });
     }
 
-    const { session: newSession, rawRefreshToken } =
-      await this.sessionService.rotateSession(session.id, session.userId, ctx);
+    const { session: newSession, rawRefreshToken } = await this.sessionService.rotateSession(
+      result.session.id,
+      result.session.userId,
+      ctx,
+    );
 
     const accessToken = this.tokenService.signAccessToken({
-      userId: session.user.id,
-      username: session.user.username,
-      role: session.user.role,
-      sessionId: newSession.id,
+      sub: result.session.user.id,
+      sid: newSession.id,
     });
+    const permissionKeys = await this.permissions.getUserPermissionKeys(result.session.user.id);
 
     return {
-      user: this.sanitizeUser(session.user),
+      user: this.sanitize(result.session.user, permissionKeys),
       accessToken,
       refreshToken: rawRefreshToken,
     };
@@ -118,27 +110,55 @@ export class AuthService {
     if (!rawToken) return;
     const { session } = await this.sessionService.findValidSessionByRefreshToken(rawToken);
     if (session) {
-      await this.sessionService.revokeSession(session.id, 'LOGOUT');
+      await this.sessionService.revokeSession(session.id, 'user-logout');
     }
   }
 
   async logoutAll(userId: string) {
-    await this.sessionService.revokeAllUserSessions(userId, 'LOGOUT_ALL');
+    await this.sessionService.revokeAllUserSessions(userId, 'logout-all');
   }
 
   async getMe(userId: string) {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException();
-    return this.sanitizeUser(user);
+    const permissionKeys = await this.permissions.getUserPermissionKeys(user.id);
+    return this.sanitize(user, permissionKeys);
   }
 
-  private sanitizeUser(user: { id: string; email: string; username: string; role: string; avatarUrl: string | null }) {
+  private async issueSession(user: { id: string; username: string }, ctx?: RequestContext) {
+    const { session, rawRefreshToken } = await this.sessionService.createSession(user.id, ctx);
+    const accessToken = this.tokenService.signAccessToken({
+      sub: user.id,
+      sid: session.id,
+    });
+    const permissionKeys = await this.permissions.getUserPermissionKeys(user.id);
+    const fullUser = await this.users.findById(user.id);
+    return {
+      user: this.sanitize(fullUser!, permissionKeys),
+      accessToken,
+      refreshToken: rawRefreshToken,
+    };
+  }
+
+  private sanitize(
+    user: {
+      id: string;
+      email: string;
+      username: string;
+      displayName?: string | null;
+      avatarUrl: string | null;
+      status: string;
+    },
+    permissionKeys: string[],
+  ) {
     return {
       id: user.id,
       email: user.email,
       username: user.username,
-      role: user.role,
+      displayName: user.displayName ?? null,
       avatarUrl: user.avatarUrl,
+      status: user.status,
+      permissionKeys,
     };
   }
 }

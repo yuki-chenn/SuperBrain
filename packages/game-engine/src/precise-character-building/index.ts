@@ -39,3 +39,4 @@ export {
 } from './validator.js';
 
 export type { ValidateRoundInput, ValidateRoundResult } from './validator.js';
+export { validateContent as precisecharacterbuildingValidateContent } from './content-validator.js';

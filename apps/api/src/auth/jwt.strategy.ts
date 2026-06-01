@@ -3,6 +3,13 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../database/prisma.service';
 
+interface JwtPayload {
+  sub: string;
+  sid?: string;
+  iat?: number;
+  exp?: number;
+}
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private prisma: PrismaService) {
@@ -13,23 +20,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; username: string; role: string; sessionId: string }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user || user.status !== 'ACTIVE') {
-      throw new UnauthorizedException();
-    }
-
-    const session = await this.prisma.session.findUnique({ where: { id: payload.sessionId } });
-    if (!session || session.revokedAt || session.expiresAt <= new Date()) {
-      throw new UnauthorizedException();
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      sessionId: session.id,
-    };
+  async validate(payload: JwtPayload) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, username: true, status: true },
+    });
+    if (!user) throw new UnauthorizedException({ error: 'user-not-found' });
+    if (user.status !== 'ACTIVE') throw new UnauthorizedException({ error: 'account-not-active' });
+    return { id: user.id, email: user.email, username: user.username, sessionId: payload.sid };
   }
 }

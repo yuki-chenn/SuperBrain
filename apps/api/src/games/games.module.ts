@@ -1,20 +1,21 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../database/prisma.module';
 import { GamesController } from './games.controller';
-import { GamesService } from './games.service';
-import { SlidingPuzzleAdapter } from './sliding-puzzle/sliding-puzzle.adapter';
-import { LifeGameAdapter } from './life-game/life-game.adapter';
-import { PreciseCharacterBuildingAdapter } from './precise-character-building/precise-character-building.adapter';
-import { AbsoluteCommandAdapter } from './absolute-command/absolute-command.adapter';
+import { GameAdapterRegistryModule } from './game-adapter-registry.module';
+import { SlidingPuzzleModule } from './sliding-puzzle/sliding-puzzle.module';
+import { LifeGameModule } from './life-game/life-game.module';
+import { PreciseCharacterGameModule } from './precise-character-building/precise-character-game.module';
+import { AbsoluteCommandModule } from './absolute-command/absolute-command.module';
 
 @Module({
-  controllers: [GamesController],
-  providers: [
-    GamesService,
-    SlidingPuzzleAdapter,
-    LifeGameAdapter,
-    PreciseCharacterBuildingAdapter,
-    AbsoluteCommandAdapter,
+  imports: [
+    PrismaModule,
+    GameAdapterRegistryModule,
+    SlidingPuzzleModule,
+    LifeGameModule,
+    PreciseCharacterGameModule,
+    AbsoluteCommandModule,
   ],
-  exports: [GamesService],
+  controllers: [GamesController],
 })
 export class GamesModule {}

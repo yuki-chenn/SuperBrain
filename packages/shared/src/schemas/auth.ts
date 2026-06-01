@@ -11,12 +11,16 @@ export const LoginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const UserStatusSchema = z.enum(['ACTIVE', 'BANNED', 'DELETED']);
+
 export const UserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   username: z.string(),
-  role: z.enum(['USER', 'ADMIN']),
+  displayName: z.string().nullable().optional(),
   avatarUrl: z.string().nullable().optional(),
+  status: UserStatusSchema,
+  permissionKeys: z.array(z.string()),
 });
 
 export const AuthResponseSchema = z.object({

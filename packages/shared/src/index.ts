@@ -9,3 +9,7 @@ export * from './schemas/life-game.js';
 export * from './schemas/precise-character-building.js';
 export * from './schemas/absolute-command.js';
 export * from './schemas/absolute-command-admin.js';
+export * from './games/sliding-puzzle/content-schema.js';
+export * from './games/life-game/content-schema.js';
+export * from './games/precise-character-building/content-schema.js';
+export * from './games/absolute-command/content-schema.js';

@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy file (Change 7 will rewrite for unified submissions endpoint)
 import { create } from 'zustand';
 import type { SubmitLifeRegionResponse, GetLifeAttemptResponse } from '@brain-games/shared';
 import {

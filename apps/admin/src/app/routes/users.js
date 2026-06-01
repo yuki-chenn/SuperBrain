@@ -1,0 +1,33 @@
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { useState } from 'react';
+import { useTabStore } from '../../stores/useTabStore';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminListUsersApi, adminBanUserApi, adminUnbanUserApi } from '../../features/users/api';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Card } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+export default function UsersPage() {
+    const { openTab } = useTabStore();
+    const queryClient = useQueryClient();
+    const [keyword, setKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [page, setPage] = useState(1);
+    const { data, isLoading } = useQuery({
+        queryKey: ['admin-users', keyword, statusFilter, page],
+        queryFn: () => adminListUsersApi({ keyword: keyword || undefined, status: statusFilter || undefined, page, pageSize: 20 }),
+    });
+    const banMutation = useMutation({
+        mutationFn: (userId) => adminBanUserApi(userId),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    });
+    const unbanMutation = useMutation({
+        mutationFn: (userId) => adminUnbanUserApi(userId),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    });
+    return (_jsxs("div", { className: "p-6 max-w-7xl mx-auto space-y-6", children: [_jsx("h1", { className: "text-2xl font-bold text-[var(--sb-text-primary)]", children: "\u7528\u6237\u7BA1\u7406" }), _jsxs(Card, { children: [_jsxs("div", { className: "flex flex-wrap items-center gap-4 mb-4", children: [_jsx(Input, { placeholder: "\u641C\u7D22\u7528\u6237\u540D\u6216\u90AE\u7BB1...", value: keyword, onChange: (e) => { setKeyword(e.target.value); setPage(1); }, className: "max-w-xs" }), _jsxs("select", { value: statusFilter, onChange: (e) => { setStatusFilter(e.target.value); setPage(1); }, className: "bg-[var(--sb-bg-muted)] border border-[var(--sb-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--sb-text-primary)] outline-none cursor-pointer", children: [_jsx("option", { value: "", children: "\u5168\u90E8\u72B6\u6001" }), _jsx("option", { value: "ACTIVE", children: "\u6D3B\u8DC3" }), _jsx("option", { value: "BANNED", children: "\u5DF2\u5C01\u7981" })] }), data && _jsxs("span", { className: "text-sm text-[var(--sb-text-muted)] ml-auto", children: ["\u5171 ", data.total, " \u4E2A\u7528\u6237"] })] }), isLoading ? (_jsx("div", { className: "text-center text-[var(--sb-text-muted)] py-8", children: "\u52A0\u8F7D\u4E2D..." })) : data && data.items.length > 0 ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "w-full text-sm", children: [_jsx("thead", { children: _jsxs("tr", { className: "border-b border-[var(--sb-border)]", children: [_jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u7528\u6237\u540D" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u90AE\u7BB1" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u89D2\u8272" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u72B6\u6001" }), _jsx("th", { className: "text-center py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u6311\u6218" }), _jsx("th", { className: "text-center py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u5B8C\u6210" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u6CE8\u518C\u65F6\u95F4" }), _jsx("th", { className: "text-right py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u64CD\u4F5C" })] }) }), _jsx("tbody", { children: data.items.map((user) => (_jsxs("tr", { className: "border-b border-[var(--sb-border)] hover:bg-[var(--sb-bg-muted)] cursor-pointer", onClick: () => {
+                                                    const detailPath = `/users/${user.id}`;
+                                                    openTab({ id: detailPath, title: `用户 - ${user.username}`, path: detailPath });
+                                                }, children: [_jsx("td", { className: "py-3 px-3 text-[var(--sb-text-primary)] font-medium", children: user.username }), _jsx("td", { className: "py-3 px-3 text-[var(--sb-text-muted)] text-xs", children: user.email }), _jsx("td", { className: "py-3 px-3", children: _jsx(Badge, { variant: user.role === 'ADMIN' ? 'primary' : 'default', children: user.role }) }), _jsx("td", { className: "py-3 px-3", children: _jsx(Badge, { variant: user.status === 'ACTIVE' ? 'success' : 'danger', children: user.status === 'ACTIVE' ? '活跃' : '已封禁' }) }), _jsx("td", { className: "py-3 px-3 text-center text-[var(--sb-text-secondary)]", children: user.attemptCount }), _jsx("td", { className: "py-3 px-3 text-center text-[var(--sb-text-secondary)]", children: user.completedCount }), _jsx("td", { className: "py-3 px-3 text-[var(--sb-text-muted)] text-xs", children: new Date(user.createdAt).toLocaleDateString() }), _jsx("td", { className: "py-3 px-3 text-right", children: user.status === 'ACTIVE' ? (_jsx(Button, { size: "sm", variant: "danger", onClick: (e) => { e.stopPropagation(); banMutation.mutate(user.id); }, children: "\u5C01\u7981" })) : (_jsx(Button, { size: "sm", variant: "secondary", onClick: (e) => { e.stopPropagation(); unbanMutation.mutate(user.id); }, children: "\u89E3\u5C01" })) })] }, user.id))) })] }) }), data.total > 20 && (_jsxs("div", { className: "flex items-center justify-center gap-2 mt-4", children: [_jsx(Button, { size: "sm", variant: "secondary", disabled: page <= 1, onClick: () => setPage(p => p - 1), children: "\u4E0A\u4E00\u9875" }), _jsxs("span", { className: "text-sm text-[var(--sb-text-muted)] px-3", children: [page, " / ", Math.ceil(data.total / 20)] }), _jsx(Button, { size: "sm", variant: "secondary", disabled: page >= Math.ceil(data.total / 20), onClick: () => setPage(p => p + 1), children: "\u4E0B\u4E00\u9875" })] }))] })) : (_jsx("div", { className: "text-center text-[var(--sb-text-muted)] py-8", children: "\u6682\u65E0\u7528\u6237" }))] })] }));
+}
+//# sourceMappingURL=users.js.map

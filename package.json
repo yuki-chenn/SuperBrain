@@ -23,6 +23,9 @@
       "argon2",
       "esbuild",
       "prisma"
+    ],
+    "ignoredBuiltDependencies": [
+      "msgpackr-extract"
     ]
   },
   "devDependencies": {

@@ -1,143 +1,172 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { PrismaService } from '../database/prisma.service';
-import { AuditService } from './audit.service';
+
+const stableHash = (v: unknown) => createHash('sha256').update(JSON.stringify(v ?? {})).digest('hex');
 
 @Injectable()
 export class AdminGamesService {
-  constructor(
-    private prisma: PrismaService,
-    private audit: AuditService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async list(query: { status?: string; page?: number; pageSize?: number }) {
-    const page = query.page || 1;
-    const pageSize = Math.min(query.pageSize || 20, 100);
-
-    const where: any = {};
-    if (query.status) where.status = query.status;
-
-    const [games, total] = await Promise.all([
-      this.prisma.game.findMany({
-        where,
-        orderBy: { createdAt: 'asc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: {
-          _count: { select: { attempts: true, absoluteCommandPuzzles: true, lifePuzzles: true, pcbPuzzles: true } },
-        },
-      }),
-      this.prisma.game.count({ where }),
-    ]);
-
-    return {
-      items: games.map((g) => ({
-        id: g.id, slug: g.slug, title: g.title, subtitle: g.subtitle,
-        description: g.description, source: g.source, coverUrl: g.coverUrl,
-        status: g.status, difficultyLevels: g.difficultyLevels, metadata: g.metadata,
-        puzzleCount: g._count.absoluteCommandPuzzles + g._count.lifePuzzles + g._count.pcbPuzzles,
-        attemptCount: g._count.attempts,
-        createdAt: g.createdAt.toISOString(),
-        updatedAt: g.updatedAt.toISOString(),
-      })),
-      total,
-    };
-  }
-
-  async getDetail(gameId: string) {
-    const game = await this.prisma.game.findUnique({
-      where: { id: gameId },
+  async list() {
+    const items = await this.prisma.game.findMany({
+      orderBy: { sortOrder: 'asc' },
       include: {
-        _count: { select: { attempts: true, absoluteCommandPuzzles: true, lifePuzzles: true, pcbPuzzles: true } },
+        _count: { select: { difficulties: true, puzzles: true, leaderboards: true } },
       },
     });
-    if (!game) throw new NotFoundException('Game not found');
-
     return {
-      id: game.id, slug: game.slug, title: game.title, subtitle: game.subtitle,
-      description: game.description, source: game.source, coverUrl: game.coverUrl,
-      status: game.status, difficultyLevels: game.difficultyLevels, metadata: game.metadata,
-      puzzleCount: game._count.absoluteCommandPuzzles + game._count.lifePuzzles + game._count.pcbPuzzles,
-      attemptCount: game._count.attempts,
-      createdAt: game.createdAt.toISOString(),
-      updatedAt: game.updatedAt.toISOString(),
+      items: items.map((g: any) => ({
+        ...g,
+        difficultyLevels: [], // legacy field kept for SPA compat (Change 4 SPA work pending)
+        puzzleCount: g._count?.puzzles ?? 0,
+        attemptCount: 0,
+      })),
+      total: items.length,
     };
   }
 
-  async update(gameId: string, input: any, admin: { id: string; username: string }) {
-    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
-    if (!game) throw new NotFoundException('Game not found');
-
-    const updated = await this.prisma.game.update({
-      where: { id: gameId },
-      data: input,
+  async detail(id: string) {
+    const g = await this.prisma.game.findUnique({
+      where: { id },
+      include: {
+        ruleSetVersions: { orderBy: { version: 'desc' } },
+        difficulties: { orderBy: [{ key: 'asc' }, { version: 'desc' }] },
+        contentPolicies: true,
+        challengePolicies: true,
+      },
     });
-
-    await this.audit.log({
-      actorUserId: admin.id, actorUsername: admin.username,
-      action: 'games:update', resourceType: 'game', resourceId: gameId,
-      before: { title: game.title }, after: { title: updated.title },
-    });
-
-    return { success: true };
+    if (!g) throw new NotFoundException();
+    return g;
   }
 
-  async publish(gameId: string, admin: { id: string; username: string }) {
-    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
-    if (!game) throw new NotFoundException('Game not found');
-
-    await this.prisma.game.update({ where: { id: gameId }, data: { status: 'PUBLISHED' } });
-    await this.audit.log({
-      actorUserId: admin.id, actorUsername: admin.username,
-      action: 'games:publish', resourceType: 'game', resourceId: gameId,
-      before: { status: game.status }, after: { status: 'PUBLISHED' },
+  async update(id: string, body: any) {
+    return this.prisma.game.update({
+      where: { id },
+      data: {
+        title: body.title, subtitle: body.subtitle, description: body.description,
+        source: body.source, coverUrl: body.coverUrl, sortOrder: body.sortOrder,
+        metadata: body.metadata,
+      },
     });
-
-    return { success: true };
   }
 
-  async archive(gameId: string, admin: { id: string; username: string }) {
-    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
-    if (!game) throw new NotFoundException('Game not found');
-
-    await this.prisma.game.update({ where: { id: gameId }, data: { status: 'ARCHIVED' } });
-    await this.audit.log({
-      actorUserId: admin.id, actorUsername: admin.username,
-      action: 'games:archive', resourceType: 'game', resourceId: gameId,
-      before: { status: game.status }, after: { status: 'ARCHIVED' },
-    });
-
-    return { success: true };
+  async publish(id: string) {
+    return this.prisma.game.update({ where: { id }, data: { status: 'PUBLISHED', publishedAt: new Date() } });
+  }
+  async archive(id: string) {
+    return this.prisma.game.update({ where: { id }, data: { status: 'ARCHIVED', archivedAt: new Date() } });
   }
 
-  async updateDimensions(
-    gameId: string,
-    dimensions: Array<{ key: string; label: string; value: number }>,
-    admin: { id: string; username: string },
-  ) {
-    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
-    if (!game) throw new NotFoundException('Game not found');
-
-    const metadata = (game.metadata as any) || {};
-    const beforeDimensions = metadata.dimensions || [];
-
-    metadata.dimensions = dimensions.map((d) => ({
-      key: d.key,
-      label: d.label,
-      value: Math.max(1, Math.min(5, d.value)),
-    }));
-
-    await this.prisma.game.update({
-      where: { id: gameId },
-      data: { metadata },
+  // ─ Rule set versions ─
+  async createRuleSet(gameId: string, body: any) {
+    const max = await this.prisma.gameRuleSetVersion.aggregate({
+      where: { gameId }, _max: { version: true },
     });
-
-    await this.audit.log({
-      actorUserId: admin.id, actorUsername: admin.username,
-      action: 'games:update', resourceType: 'game', resourceId: gameId,
-      before: { dimensions: beforeDimensions },
-      after: { dimensions: metadata.dimensions },
+    return this.prisma.gameRuleSetVersion.create({
+      data: {
+        gameId, name: body.name, engineKey: body.engineKey,
+        engineVersion: body.engineVersion ?? null,
+        version: (max._max.version ?? 0) + 1,
+        config: body.config ?? {},
+        configHash: stableHash(body.config),
+      },
     });
+  }
+  async activateRuleSet(rsvId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const rsv = await tx.gameRuleSetVersion.findUniqueOrThrow({ where: { id: rsvId } });
+      await tx.gameRuleSetVersion.updateMany({
+        where: { gameId: rsv.gameId, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' },
+      });
+      return tx.gameRuleSetVersion.update({
+        where: { id: rsvId },
+        data: { status: 'ACTIVE', activatedAt: new Date() },
+      });
+    });
+  }
 
-    return { success: true, dimensions: metadata.dimensions };
+  // ─ Difficulty versions ─
+  async createDifficulty(gameId: string, body: any) {
+    const max = await this.prisma.gameDifficulty.aggregate({
+      where: { gameId, key: body.key }, _max: { version: true },
+    });
+    return this.prisma.gameDifficulty.create({
+      data: {
+        gameId, key: body.key, label: body.label,
+        version: (max._max.version ?? 0) + 1,
+        sortOrder: body.sortOrder ?? 0,
+        maxDurationMs: body.maxDurationMs ?? null,
+        config: body.config ?? {},
+        configHash: stableHash(body.config),
+      },
+    });
+  }
+  async activateDifficulty(diffId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const d = await tx.gameDifficulty.findUniqueOrThrow({ where: { id: diffId } });
+      await tx.gameDifficulty.updateMany({
+        where: { gameId: d.gameId, key: d.key, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' },
+      });
+      return tx.gameDifficulty.update({
+        where: { id: diffId }, data: { status: 'ACTIVE', activatedAt: new Date() },
+      });
+    });
+  }
+
+  // ─ Content policies ─
+  async createContentPolicy(gameId: string, body: any) {
+    return this.prisma.gameContentPolicy.create({
+      data: {
+        gameId, difficultyId: body.difficultyId ?? null, mode: body.mode ?? null,
+        contentMode: body.contentMode, selectionStrategy: body.selectionStrategy ?? 'RANDOM',
+        generatorKey: body.generatorKey, generatorConfig: body.generatorConfig ?? {},
+        puzzlePoolFilter: body.puzzlePoolFilter ?? {},
+        scheduleGranularity: body.scheduleGranularity ?? null,
+      },
+    });
+  }
+  async activateContentPolicy(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const p = await tx.gameContentPolicy.findUniqueOrThrow({ where: { id } });
+      await tx.gameContentPolicy.updateMany({
+        where: { gameId: p.gameId, difficultyId: p.difficultyId, mode: p.mode, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' },
+      });
+      return tx.gameContentPolicy.update({ where: { id }, data: { status: 'ACTIVE', activatedAt: new Date() } });
+    });
+  }
+
+  // ─ Challenge policies ─
+  async createChallengePolicy(gameId: string, body: any) {
+    return this.prisma.gameChallengePolicy.create({
+      data: {
+        gameId, mode: body.mode ?? 'RANKED', difficultyId: body.difficultyId ?? null,
+        allowResume: body.allowResume ?? false,
+        allowMultipleActive: body.allowMultipleActive ?? false,
+        requiresHeartbeat: body.requiresHeartbeat ?? true,
+        heartbeatIntervalSec: body.heartbeatIntervalSec ?? 5,
+        heartbeatTimeoutSec: body.heartbeatTimeoutSec ?? 15,
+        operationLogMode: body.operationLogMode ?? 'BATCHED',
+        operationBatchSize: body.operationBatchSize ?? 20,
+        snapshotEveryNEvents: body.snapshotEveryNEvents ?? null,
+        saveInitialSnapshot: body.saveInitialSnapshot ?? true,
+        saveFinalSnapshot: body.saveFinalSnapshot ?? true,
+        eligibleForLeaderboard: body.eligibleForLeaderboard ?? true,
+        maxSubmitRetry: body.maxSubmitRetry ?? 1,
+      },
+    });
+  }
+  async activateChallengePolicy(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const p = await tx.gameChallengePolicy.findUniqueOrThrow({ where: { id } });
+      await tx.gameChallengePolicy.updateMany({
+        where: { gameId: p.gameId, mode: p.mode, difficultyId: p.difficultyId, status: 'ACTIVE' },
+        data: { status: 'INACTIVE' },
+      });
+      return tx.gameChallengePolicy.update({ where: { id }, data: { status: 'ACTIVE' } });
+    });
   }
 }

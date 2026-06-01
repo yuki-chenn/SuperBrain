@@ -3,6 +3,7 @@ import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';
 import { RadarChart } from '../ui/RadarChart';
 import { GAME_DIMENSIONS } from '../../features/games/dimensions';
+import type { GameDimension } from '../../features/games/config/types';
 
 interface Game {
   slug: string;
@@ -10,7 +11,7 @@ interface Game {
   subtitle?: string | null;
   source?: string | null;
   difficultyLevels?: Array<{ key: string; label: string }>;
-  metadata?: { tags?: string[]; estimatedDuration?: string } | Record<string, unknown>;
+  metadata?: { tags?: string[]; estimatedDuration?: string; dimensions?: GameDimension[] } | Record<string, unknown>;
 }
 
 interface GameCardProps {
@@ -18,11 +19,12 @@ interface GameCardProps {
 }
 
 export function GameCard({ game }: GameCardProps) {
-  const meta = game.metadata as { tags?: string[]; estimatedDuration?: string } | undefined;
+  const meta = game.metadata as { tags?: string[]; estimatedDuration?: string; dimensions?: GameDimension[] } | undefined;
   const tags = meta?.tags || [];
   const duration = meta?.estimatedDuration;
   const difficulties = game.difficultyLevels?.length || 0;
-  const dimensions = GAME_DIMENSIONS[game.slug] || [];
+  const metaDimensions = meta?.dimensions;
+  const dimensions = (metaDimensions && metaDimensions.length > 0) ? metaDimensions : (GAME_DIMENSIONS[game.slug] || []);
 
   return (
     <Link

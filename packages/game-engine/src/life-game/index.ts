@@ -45,3 +45,4 @@ export {
   validateRegionSubmission,
 } from './validator.js';
 export type { ValidateLocalCellsInput, ValidateLocalCellsResult, ValidateRegionSubmissionInput } from './validator.js';
+export { validateContent as lifegameValidateContent } from './content-validator.js';

@@ -1,14 +1,10 @@
 import { Module } from '@nestjs/common';
-import { LifeGameController } from './life-game.controller';
-import { LifeGameService } from './life-game.service';
-import { GamesModule } from '../games.module';
-import { LeaderboardsModule } from '../../leaderboards/leaderboards.module';
 import { PrismaModule } from '../../database/prisma.module';
+import { LifeGameAdapter } from './life-game.adapter';
 
 @Module({
-  imports: [GamesModule, LeaderboardsModule, PrismaModule],
-  controllers: [LifeGameController],
-  providers: [LifeGameService],
-  exports: [LifeGameService],
+  imports: [PrismaModule],
+  providers: [LifeGameAdapter],
+  exports: [LifeGameAdapter],
 })
 export class LifeGameModule {}

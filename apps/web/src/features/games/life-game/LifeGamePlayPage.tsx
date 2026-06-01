@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy file (Change 7 will rewrite for unified submissions endpoint)
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useLifeGameStore } from './useLifeGameStore';

@@ -1,72 +1,90 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
+import { GameAdapterRegistry } from '../game-adapter-registry.service';
 import { PrismaService } from '../../database/prisma.service';
 import type {
-  GameAdapter,
-  StartAttemptInput,
-  StartAttemptResult,
-  FinishAttemptInput,
-  FinishAttemptResult,
+  GameRuntimeAdapter, StartAttemptInput, StartAttemptResult,
+  FinishAttemptInput, FinishAttemptResult,
 } from '../game-adapter.interface';
 
 @Injectable()
-export class PreciseCharacterBuildingAdapter implements GameAdapter {
-  slug = 'precise-character-building';
+export class PreciseCharacterBuildingAdapter implements GameRuntimeAdapter, OnModuleInit {
+  engineKey = 'precise-character-building';
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private registry: GameAdapterRegistry,
+    private prisma: PrismaService,
+  ) {}
+
+  onModuleInit() { this.registry.register(this); }
 
   async startAttempt(input: StartAttemptInput): Promise<StartAttemptResult> {
-    const puzzles = await this.prisma.preciseCharacterPuzzle.findMany({
-      where: {
-        gameId: input.gameId,
-        difficultyKey: input.difficultyKey,
-        status: 'ACTIVE',
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    if (puzzles.length === 0) {
-      throw new Error(`No PCB puzzles available for difficulty: ${input.difficultyKey}`);
-    }
-
-    // Prefer unplayed puzzles
-    const userAttempts = await this.prisma.gameAttempt.findMany({
-      where: {
-        userId: input.userId,
-        gameId: input.gameId,
-        difficultyKey: input.difficultyKey,
-        pcbPuzzleId: { not: null },
-      },
-      select: { pcbPuzzleId: true },
-    });
-
-    const playedIds = new Set(
-      userAttempts.map((a) => a.pcbPuzzleId).filter(Boolean),
-    );
-
-    const unplayed = puzzles.filter((p) => !playedIds.has(p.id));
-    const candidates = unplayed.length > 0 ? unplayed : puzzles;
-    const puzzle = candidates[Math.floor(Math.random() * candidates.length)];
-
-    const puzzleData = puzzle as unknown as {
-      radicalPool: unknown;
-      cells: unknown;
-      config: unknown;
-    };
-
+    const puzzleVersion = await this.pickPuzzleVersion(input);
+    const content = puzzleVersion.content as any;
     return {
-      seed: puzzle.id,
       initialState: {
-        radicalPool: puzzleData.radicalPool,
-        cells: puzzleData.cells,
-        config: puzzleData.config,
+        engine: this.engineKey,
+        boardSize: content.boardSize,
+        radicalPool: content.radicalPool,
+        cells: content.cells,
+        runtimeConfig: content.runtimeConfig,
       },
+      contentResolvedType: 'CURATED',
+      puzzleId: puzzleVersion.puzzleId,
+      puzzleVersionId: puzzleVersion.id,
+      maxDurationMs: input.difficulty?.maxDurationMs ?? 25 * 60_000,
     };
   }
 
-  async finishAttempt(_input: FinishAttemptInput): Promise<FinishAttemptResult> {
+  async finishAttempt(input: FinishAttemptInput): Promise<FinishAttemptResult> {
+    const submissions = await this.prisma.gameSubmission.findMany({
+      where: { attemptId: input.attempt.id, submissionType: 'ROUND', validationPassed: true },
+    });
+    const content = (input.puzzleVersion?.content ?? {}) as any;
+    const requiredRounds = (content.solutionRounds ?? []).length;
+    const passed = requiredRounds > 0 && submissions.length >= requiredRounds;
+    const completedAt = new Date();
+    const startedAt = input.attempt.playingAt ?? input.attempt.claimedAt ?? input.attempt.createdAt;
+    const durationMs = startedAt ? completedAt.getTime() - new Date(startedAt).getTime() : 0;
     return {
-      valid: false,
-      invalidReason: 'USE_ROUND_SUBMISSION',
+      passed,
+      scoreValue: passed ? durationMs : undefined,
+      durationMs,
+      metrics: { roundsCompleted: submissions.length, roundsTotal: requiredRounds },
+      antiCheatFlags: passed ? [] : ['INCOMPLETE_ROUNDS'],
+      validatorKey: this.engineKey,
+      validatorVersion: '1.0.0',
     };
+  }
+
+
+  async verifySubmission(input: any): Promise<any> {
+    if (input.submissionType !== 'ROUND') {
+      return { accepted: false, reason: 'submission-type-not-supported', result: { accepted: ['ROUND'] } };
+    }
+    const content = (input.puzzleVersion?.content ?? {}) as any;
+    const { roundIndex, radicalKeys, cellPath } = (input.payload ?? {}) as any;
+    const expected = (content.solutionRounds ?? []).find((r: any) => r.roundIndex === roundIndex);
+    if (!expected) return { accepted: false, reason: 'invalid-round-index', result: { roundIndex } };
+    const radicalsMatch = JSON.stringify(radicalKeys) === JSON.stringify(expected.radicalKeys);
+    const pathMatch = JSON.stringify(cellPath) === JSON.stringify(expected.path);
+    const accepted = radicalsMatch && pathMatch;
+    const totalRounds = (content.solutionRounds ?? []).length;
+    return {
+      accepted,
+      result: { roundIndex, radicalsMatch, pathMatch, totalRounds },
+      metricsDelta: accepted ? { roundsCompleted: 1 } : { errorCount: 1 },
+      finalReady: accepted && (input.attempt.metricsSummary?.roundsCompleted ?? 0) + 1 >= totalRounds,
+    };
+  }
+
+  private async pickPuzzleVersion(input: StartAttemptInput) {
+    const puzzles = await this.prisma.puzzle.findMany({
+      where: { gameId: input.game.id, status: 'PUBLISHED', difficultyId: input.difficulty?.id },
+      include: { versions: { where: { status: 'PUBLISHED' }, take: 1 } },
+    });
+    const candidates = puzzles.filter((p) => p.versions.length > 0);
+    if (candidates.length === 0) throw new NotFoundException(`No published PCB puzzle for difficulty ${input.difficulty?.key}`);
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+    return pick.versions[0];
   }
 }

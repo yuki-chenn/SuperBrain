@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: '/leaderboards', label: '排行榜', icon: '🏆', matchPrefixes: ['/leaderboards'] },
   { id: '/attempts', label: '挑战记录', icon: '📋', matchPrefixes: ['/attempts'] },
   { id: '/audit', label: '审计日志', icon: '📝', matchPrefixes: ['/audit'] },
+  { id: '/database', label: '所有数据库', icon: '🗄️', matchPrefixes: ['/database'] },
 ];
 
 export function AdminSidebar() {

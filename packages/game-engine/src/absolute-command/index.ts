@@ -45,3 +45,4 @@ export {
   validateReferenceSolution,
   validateAbsoluteCommandPuzzle,
 } from './validator.js';
+export { validateContent as absolutecommandValidateContent } from './content-validator.js';

@@ -1,0 +1,16 @@
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { useQuery } from '@tanstack/react-query';
+import { adminListAuditLogsApi } from '../../features/audit/api';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { useState } from 'react';
+export default function AuditPage() {
+    const [page, setPage] = useState(1);
+    const { data, isLoading } = useQuery({
+        queryKey: ['admin-audit-logs', page],
+        queryFn: () => adminListAuditLogsApi({ page, pageSize: 30 }),
+    });
+    return (_jsxs("div", { className: "p-6 max-w-7xl mx-auto space-y-6", children: [_jsx("h1", { className: "text-2xl font-bold text-[var(--sb-text-primary)]", children: "\u5BA1\u8BA1\u65E5\u5FD7" }), _jsx(Card, { children: isLoading ? (_jsx("div", { className: "text-center text-[var(--sb-text-muted)] py-8", children: "\u52A0\u8F7D\u4E2D..." })) : data && data.items.length > 0 ? (_jsxs(_Fragment, { children: [_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "w-full text-sm", children: [_jsx("thead", { children: _jsxs("tr", { className: "border-b border-[var(--sb-border)]", children: [_jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u65F6\u95F4" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u64CD\u4F5C\u4EBA" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u64CD\u4F5C" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u8D44\u6E90\u7C7B\u578B" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u8D44\u6E90 ID" })] }) }), _jsx("tbody", { children: data.items.map((log) => (_jsxs("tr", { className: "border-b border-[var(--sb-border)]", children: [_jsx("td", { className: "py-3 px-3 text-[var(--sb-text-muted)] text-xs", children: new Date(log.createdAt).toLocaleString() }), _jsx("td", { className: "py-3 px-3 text-[var(--sb-text-primary)]", children: log.actorUsername || '-' }), _jsx("td", { className: "py-3 px-3", children: _jsx(Badge, { variant: "default", children: log.action }) }), _jsx("td", { className: "py-3 px-3 text-[var(--sb-text-secondary)]", children: log.resourceType }), _jsx("td", { className: "py-3 px-3 text-[var(--sb-text-muted)] font-mono text-xs", children: log.resourceId?.slice(0, 8) || '-' })] }, log.id))) })] }) }), data.total > 30 && (_jsxs("div", { className: "flex items-center justify-center gap-2 mt-4", children: [_jsx(Button, { size: "sm", variant: "secondary", disabled: page <= 1, onClick: () => setPage(p => p - 1), children: "\u4E0A\u4E00\u9875" }), _jsxs("span", { className: "text-sm text-[var(--sb-text-muted)] px-3", children: [page, " / ", Math.ceil(data.total / 30)] }), _jsx(Button, { size: "sm", variant: "secondary", disabled: page >= Math.ceil(data.total / 30), onClick: () => setPage(p => p + 1), children: "\u4E0B\u4E00\u9875" })] }))] })) : (_jsx("div", { className: "text-center text-[var(--sb-text-muted)] py-8", children: "\u6682\u65E0\u5BA1\u8BA1\u65E5\u5FD7" })) })] }));
+}
+//# sourceMappingURL=audit.js.map

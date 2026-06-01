@@ -1,0 +1,7 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { forwardRef } from 'react';
+export const Input = forwardRef(({ label, error, className = '', ...props }, ref) => {
+    return (_jsxs("div", { children: [label && (_jsx("label", { className: "block text-sm text-[var(--sb-text-secondary)] mb-1.5", children: label })), _jsx("input", { ref: ref, className: `w-full px-3.5 py-2.5 bg-[var(--sb-bg-muted)] border border-[var(--sb-border)] rounded-[var(--sb-radius-input)] text-[var(--sb-text-primary)] placeholder:text-[var(--sb-text-muted)] focus:outline-none focus:border-[var(--sb-primary)] focus:ring-1 focus:ring-[var(--sb-primary)]/30 transition-[var(--sb-transition)] ${className}`, ...props }), error && _jsx("p", { className: "mt-1.5 text-sm text-[var(--sb-danger)]", children: error })] }));
+});
+Input.displayName = 'Input';
+//# sourceMappingURL=Input.js.map

@@ -1,3 +1,24 @@
+// SuperBrain database schema — greenfield rewrite.
+// Authoritative source: openspec/changes/redesign-database-schema-greenfield/design.md
+// Generated as part of change `redesign-database-schema-greenfield`.
+//
+// Organization (8 data domains):
+//   1. Identity & Access            (User, AuthSession, Role, Permission, UserRole, RolePermission)
+//   2. Game Catalog & Policy        (Game, GameRuleSetVersion, GameDifficulty, GameContentPolicy, GameChallengePolicy)
+//   3. Puzzle System                (Puzzle, PuzzleVersion, PuzzleSchedule, PuzzleTag, PuzzleTagBinding, PuzzleAsset)
+//   4. Challenge Runtime            (GameAttempt, AttemptRuntimeSession, AttemptOperationLog,
+//                                    AttemptOperationBatch, AttemptSnapshot, GameSubmission,
+//                                    AttemptValidationReport, ChallengeAuditLog)
+//   5. Idempotency                  (IdempotencyRecord)
+//   6. Leaderboard & Score          (LeaderboardDefinition, LeaderboardPeriod, ScoreRecord,
+//                                    LeaderboardBest, LeaderboardRankCache)
+//   7. Admin & Audit                (AdminAuditLog, AdminReviewTask)
+//   8. Data Lifecycle               (DataRetentionPolicy, DataArchiveBatch, DataArchiveObject, DataCleanupRun)
+//   9. Game-Specific Dictionary     (CharacterRadical, CharacterRoot, CharacterCombination)
+//
+// Partial unique indexes (ACTIVE-row constraints, RANKED active-attempt, etc.) are NOT
+// expressible in Prisma DSL; they are appended as raw SQL to the init migration.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,26 +28,195 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  USER
-  ADMIN
-}
+// ════════════════════════════════════════════════════════════════════════════
+// Enums
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── Identity & Access ─────────────────────────────────────────────────────
 
 enum UserStatus {
   ACTIVE
   BANNED
+  DELETED
 }
+
+enum AuthSessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+  ROTATED
+  COMPROMISED
+}
+
+// ─── Game Catalog & Policy ─────────────────────────────────────────────────
 
 enum GameStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+  DISABLED
+}
+
+enum ConfigStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ConfigValidationStatus {
+  UNVALIDATED
+  VALIDATING
+  VALID
+  INVALID
+  WARNING
+}
+
+enum ContentMode {
+  GENERATED
+  CURATED
+  SCHEDULED
+  MIXED
+}
+
+enum PuzzleSelectionStrategy {
+  RANDOM
+  ROUND_ROBIN
+  MANUAL
+  DAILY
+  WEEKLY
+  MONTHLY
+  WEIGHTED_RANDOM
+}
+
+// ─── Puzzle ────────────────────────────────────────────────────────────────
+
+enum PuzzleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DISABLED
+}
+
+enum PuzzleVersionStatus {
+  DRAFT
+  VALIDATING
+  VALID
+  INVALID
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ScheduleGranularity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  SEASONAL
+  CUSTOM
+}
+
+// ─── Attempt Runtime ───────────────────────────────────────────────────────
+
+enum ChallengeMode {
+  RANKED
+  DAILY
+  CASUAL
+  PRACTICE
+  ROOM
+  ADMIN_TEST
 }
 
 enum AttemptStatus {
-  STARTED
+  CREATED
+  CLAIMED
+  PLAYING
+  PAUSED
+  SUBMITTING
   COMPLETED
+  ABANDONED
+  TIMEOUT
+  INTERRUPTED
+  INVALIDATED
+  REVIEW_REQUIRED
+  REVOKED
+  ADMIN_CORRECTED
+}
+
+enum AttemptValidationStatus {
+  PENDING
+  VALIDATING
+  VALID
+  INVALID
+  ERROR
+  REVIEW_REQUIRED
+}
+
+enum ScoreEligibility {
+  NOT_ELIGIBLE
+  ELIGIBLE
+  RECORDED
+  REVOKED
+}
+
+enum OperationLogMode {
+  NONE
+  SUMMARY
+  EVENT
+  BATCHED
+  FULL
+}
+
+enum SnapshotType {
+  INITIAL
+  CHECKPOINT
+  FINAL
+  ERROR
+  VALIDATION
+  ADMIN_REVIEW
+}
+
+enum SubmissionType {
+  FINAL
+  STEP
+  ROUND
+  REGION
+  COMMAND
+  CHECKPOINT
+}
+
+enum BatchStatus {
+  ACCEPTED
+  DUPLICATE
+  REJECTED
+  FLUSHED
+}
+
+enum IdempotencyStatus {
+  PROCESSING
+  SUCCEEDED
   FAILED
+  EXPIRED
+}
+
+// ─── Leaderboard ───────────────────────────────────────────────────────────
+
+enum LeaderboardScope {
+  GLOBAL
+  DAILY
+  WEEKLY
+  MONTHLY
+  SEASONAL
+  PUZZLE
+  FRIENDS
+}
+
+enum LeaderboardPeriodType {
+  ALL_TIME
+  DAILY
+  WEEKLY
+  MONTHLY
+  SEASONAL
+  CUSTOM
 }
 
 enum RankDirection {
@@ -34,207 +224,977 @@ enum RankDirection {
   DESC
 }
 
-enum LeaderboardScope {
-  GLOBAL
-  DAILY
-  WEEKLY
-  FRIENDS
-}
-
 enum EntryPolicy {
   BEST_PER_USER
   ALL_ATTEMPTS
 }
 
-model User {
-  id           String       @id @default(cuid())
-  email        String       @unique
-  username     String       @unique
-  passwordHash String
-  avatarUrl    String?
-  role         UserRole     @default(USER)
-  status       UserStatus   @default(ACTIVE)
-  lastLoginAt  DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  attempts              GameAttempt[]
-  entries               LeaderboardEntry[]
-  sessions              Session[]
-  lifeSubmissions       LifeRegionSubmission[]
-  pcbSubmissions        PreciseCharacterRoundSubmission[]
-  absoluteCommandLogs   AbsoluteCommandLog[]
+enum ScoreRecordStatus {
+  ACTIVE
+  HIDDEN
+  REVOKED
+  ARCHIVED
 }
 
-model Session {
-  id                   String    @id @default(cuid())
+// ─── Data Lifecycle ────────────────────────────────────────────────────────
+
+enum RetentionAction {
+  KEEP
+  COMPACT
+  ARCHIVE
+  DELETE
+  ANONYMIZE
+}
+
+enum ArchiveFormat {
+  JSONL_GZIP
+  PARQUET
+  CSV_GZIP
+}
+
+enum CleanupRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  PARTIAL_FAILED
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 1. Identity & Access
+// ════════════════════════════════════════════════════════════════════════════
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  username     String     @unique
+  displayName  String?
+  passwordHash String
+  avatarUrl    String?
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  authSessions     AuthSession[]
+  userRoles        UserRole[]        @relation("user_to_userrole")
+  assignedRoles    UserRole[]        @relation("assigner_to_userrole")
+  attempts         GameAttempt[]
+  submissions      GameSubmission[]
+  scoreRecords     ScoreRecord[]
+  leaderboardBests LeaderboardBest[]
+  auditedActions   AdminAuditLog[]
+  reviewRequests   AdminReviewTask[] @relation("review_requests")
+  reviewedTasks    AdminReviewTask[] @relation("review_reviews")
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuthSession {
+  id                   String            @id @default(cuid())
   userId               String
-  refreshTokenHash     String    @unique
+  refreshTokenHash     String            @unique
   refreshTokenFamilyId String
+  status               AuthSessionStatus @default(ACTIVE)
   userAgent            String?
   ipAddress            String?
   expiresAt            DateTime
+  lastUsedAt           DateTime?
   revokedAt            DateTime?
   revokedReason        String?
   replacedBySessionId  String?
-  lastUsedAt           DateTime?
-  createdAt            DateTime  @default(now())
+  createdAt            DateTime          @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId, status])
   @@index([refreshTokenFamilyId])
   @@index([expiresAt])
-  @@index([revokedAt])
+  @@index([status, expiresAt])
 }
+
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@index([isSystem])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@index([resource, action])
+}
+
+model UserRole {
+  userId           String
+  roleId           String
+  assignedByUserId String?
+  createdAt        DateTime @default(now())
+
+  user       User  @relation("user_to_userrole", fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("assigner_to_userrole", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([assignedByUserId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 2. Game Catalog & Policy
+// ════════════════════════════════════════════════════════════════════════════
 
 model Game {
-  id               String     @id @default(cuid())
-  slug             String     @unique
-  title            String
-  subtitle         String?
-  description      String
-  source           String?
-  coverUrl         String?
-  status           GameStatus @default(DRAFT)
-  difficultyLevels Json
-  metadata         Json       @default("{}")
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  id              String     @id @default(cuid())
+  slug            String     @unique
+  title           String
+  subtitle        String?
+  description     String
+  source          String?
+  coverUrl        String?
+  status          GameStatus @default(DRAFT)
+  sortOrder       Int        @default(0)
+  metadata        Json       @default("{}")
+  publishedAt     DateTime?
+  archivedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  attempts              GameAttempt[]
-  leaderboards          LeaderboardDefinition[]
-  lifePuzzles           LifePuzzle[]
-  pcbPuzzles            PreciseCharacterPuzzle[]
-  absoluteCommandPuzzles AbsoluteCommandPuzzle[]
+  ruleSetVersions   GameRuleSetVersion[]
+  difficulties      GameDifficulty[]
+  contentPolicies   GameContentPolicy[]
+  challengePolicies GameChallengePolicy[]
+  puzzles           Puzzle[]
+  puzzleSchedules   PuzzleSchedule[]
+  puzzleTags        PuzzleTag[]
+  attempts          GameAttempt[]
+  leaderboards      LeaderboardDefinition[]
+
+  @@index([status, sortOrder])
+  @@index([publishedAt])
 }
+
+model GameRuleSetVersion {
+  id               String                 @id @default(cuid())
+  gameId           String
+  version          Int
+  name             String
+  engineKey        String
+  engineVersion    String?
+  schemaVersion    Int                    @default(1)
+  config           Json                   @default("{}")
+  configHash       String
+  validationStatus ConfigValidationStatus @default(UNVALIDATED)
+  validationReport Json                   @default("{}")
+  status           ConfigStatus           @default(DRAFT)
+  activatedAt      DateTime?
+  createdByUserId  String?
+  createdAt        DateTime               @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, version])
+  @@unique([gameId, configHash])
+  @@index([gameId, status])
+  @@index([validationStatus])
+}
+
+model GameDifficulty {
+  id              String       @id @default(cuid())
+  gameId          String
+  key             String
+  label           String
+  version         Int          @default(1)
+  sortOrder       Int          @default(0)
+  maxDurationMs   Int?
+  config          Json         @default("{}")
+  configHash      String
+  status          ConfigStatus @default(DRAFT)
+  activatedAt     DateTime?
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, key, version])
+  @@unique([gameId, key, configHash])
+  @@index([gameId, key, status])
+  @@index([gameId, status, sortOrder])
+}
+
+model GameContentPolicy {
+  id                  String                  @id @default(cuid())
+  gameId              String
+  difficultyId        String?
+  mode                ChallengeMode?
+  contentMode         ContentMode
+  selectionStrategy   PuzzleSelectionStrategy @default(RANDOM)
+  generatorKey        String?
+  generatorConfig     Json                    @default("{}")
+  puzzlePoolFilter    Json                    @default("{}")
+  scheduleGranularity ScheduleGranularity?
+  allowRepeatedPuzzle Boolean                 @default(true)
+  repeatCooldownHours Int?
+  weightConfig        Json                    @default("{}")
+  status              ConfigStatus            @default(DRAFT)
+  activatedAt         DateTime?
+  createdByUserId     String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, difficultyId, mode, status])
+  @@index([contentMode])
+  @@index([scheduleGranularity])
+}
+
+model GameChallengePolicy {
+  id                     String           @id @default(cuid())
+  gameId                 String
+  mode                   ChallengeMode    @default(RANKED)
+  difficultyId           String?
+  allowResume            Boolean          @default(false)
+  allowMultipleActive    Boolean          @default(false)
+  requiresHeartbeat      Boolean          @default(true)
+  heartbeatIntervalSec   Int              @default(5)
+  heartbeatTimeoutSec    Int              @default(15)
+  operationLogMode       OperationLogMode @default(BATCHED)
+  operationBatchSize     Int              @default(20)
+  snapshotEveryNEvents   Int?
+  saveInitialSnapshot    Boolean          @default(true)
+  saveFinalSnapshot      Boolean          @default(true)
+  eligibleForLeaderboard Boolean          @default(true)
+  maxSubmitRetry         Int              @default(1)
+  status                 ConfigStatus     @default(DRAFT)
+  createdByUserId        String?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, mode, status])
+  @@index([gameId, difficultyId, mode, status])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 3. Puzzle System
+// ════════════════════════════════════════════════════════════════════════════
+
+model Puzzle {
+  id                   String       @id @default(cuid())
+  gameId               String
+  slug                 String
+  title                String
+  description          String?
+  difficultyId         String?
+  status               PuzzleStatus @default(DRAFT)
+  currentVersionId     String?
+  source               String?
+  estimatedDurationSec Int?
+  sortOrder            Int          @default(0)
+  metadata             Json         @default("{}")
+  publishedAt          DateTime?
+  archivedAt           DateTime?
+  createdByUserId      String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  game        Game               @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  versions    PuzzleVersion[]
+  tagBindings PuzzleTagBinding[]
+  assets      PuzzleAsset[]
+  schedules   PuzzleSchedule[]
+
+  @@unique([gameId, slug])
+  @@index([gameId, status, difficultyId])
+  @@index([gameId, sortOrder])
+  @@index([currentVersionId])
+}
+
+model PuzzleVersion {
+  id                String                 @id @default(cuid())
+  puzzleId          String
+  version           Int
+  schemaVersion     Int                    @default(1)
+  engineKey         String
+  engineVersion     String?
+  content           Json
+  contentHash       String
+  referenceSolution Json?
+  validationStatus  ConfigValidationStatus @default(UNVALIDATED)
+  validationReport  Json                   @default("{}")
+  status            PuzzleVersionStatus    @default(DRAFT)
+  publishedAt       DateTime?
+  createdByUserId   String?
+  createdAt         DateTime               @default(now())
+
+  puzzle Puzzle @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+
+  @@unique([puzzleId, version])
+  @@unique([puzzleId, contentHash])
+  @@index([puzzleId, status])
+  @@index([validationStatus])
+  @@index([publishedAt])
+}
+
+model PuzzleSchedule {
+  id              String              @id @default(cuid())
+  gameId          String
+  puzzleId        String
+  puzzleVersionId String
+  difficultyId    String?
+  mode            ChallengeMode       @default(DAILY)
+  granularity     ScheduleGranularity
+  startAt         DateTime
+  endAt           DateTime
+  timezone        String              @default("Asia/Shanghai")
+  status          ConfigStatus        @default(DRAFT)
+  createdByUserId String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  puzzle Puzzle @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, difficultyId, mode, status, startAt, endAt])
+  @@index([puzzleVersionId])
+  @@index([granularity, startAt])
+}
+
+model PuzzleTag {
+  id          String   @id @default(cuid())
+  gameId      String?
+  key         String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  game     Game?              @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  bindings PuzzleTagBinding[]
+
+  @@unique([gameId, key])
+  @@index([gameId])
+}
+
+model PuzzleTagBinding {
+  puzzleId  String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  puzzle Puzzle    @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+  tag    PuzzleTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([puzzleId, tagId])
+  @@index([tagId])
+}
+
+model PuzzleAsset {
+  id              String   @id @default(cuid())
+  gameId          String
+  puzzleId        String?
+  puzzleVersionId String?
+  assetKey        String
+  url             String?
+  mimeType        String
+  sizeBytes       BigInt
+  sha256          String   @unique
+  metadata        Json     @default("{}")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  puzzle Puzzle? @relation(fields: [puzzleId], references: [id], onDelete: SetNull)
+
+  @@index([gameId])
+  @@index([puzzleId])
+  @@index([puzzleVersionId])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 4. Challenge Runtime
+// ════════════════════════════════════════════════════════════════════════════
 
 model GameAttempt {
-  id            String        @id @default(cuid())
-  userId        String
-  gameId        String
-  difficultyKey String
-  status        AttemptStatus @default(STARTED)
-  seed          String
-  initialState  Json
-  finalState    Json?
-  moveTrace     Json?
-  metrics       Json          @default("{}")
-  metadata      Json          @default("{}")
-  rankValue     Decimal?
-  startedAt     DateTime      @default(now())
-  completedAt   DateTime?
-  invalidReason String?
-  createdAt     DateTime      @default(now())
-
-  user                      User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  game                      Game                        @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  entries                   LeaderboardEntry[]
-  lifePuzzle                LifePuzzle?                 @relation(fields: [lifePuzzleId], references: [id])
-  lifePuzzleId              String?
-  lifeSubmissions           LifeRegionSubmission[]
-  pcbPuzzle                 PreciseCharacterPuzzle?     @relation(fields: [pcbPuzzleId], references: [id])
-  pcbPuzzleId               String?
-  pcbSubmissions            PreciseCharacterRoundSubmission[]
-  absoluteCommandPuzzle     AbsoluteCommandPuzzle?      @relation(fields: [absoluteCommandPuzzleId], references: [id])
-  absoluteCommandPuzzleId   String?
-  absoluteCommandLogs       AbsoluteCommandLog[]
-
-  @@index([userId, gameId, difficultyKey, status])
-  @@index([gameId, difficultyKey, status, rankValue])
-}
-
-model LeaderboardDefinition {
-  id            String            @id @default(cuid())
-  gameId        String
-  slug          String            @unique
-  name          String
-  scope         LeaderboardScope  @default(GLOBAL)
-  difficultyKey String?
-  puzzleId      String?
-  rankMetric    String
-  rankDirection RankDirection
-  tieBreakers   Json              @default("[]")
-  entryPolicy   EntryPolicy       @default(BEST_PER_USER)
-  metadata      Json              @default("{}")
-  createdAt     DateTime          @default(now())
-
-  game    Game               @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  entries LeaderboardEntry[]
-
-  @@index([gameId, difficultyKey])
-  @@index([puzzleId])
-}
-
-model LeaderboardEntry {
-  id                      String   @id @default(cuid())
-  leaderboardDefinitionId String
-  userId                  String
-  bestAttemptId           String
-  rankValue               Decimal
-  metrics                 Json     @default("{}")
-  updatedAt               DateTime @updatedAt
-
-  leaderboardDefinition LeaderboardDefinition @relation(fields: [leaderboardDefinitionId], references: [id], onDelete: Cascade)
-  user                  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bestAttempt           GameAttempt          @relation(fields: [bestAttemptId], references: [id], onDelete: Cascade)
-
-  @@unique([leaderboardDefinitionId, userId])
-  @@index([leaderboardDefinitionId, rankValue])
-}
-
-model LifePuzzle {
-  id               String   @id @default(cuid())
+  id               String           @id @default(cuid())
+  userId           String
   gameId           String
-  difficultyKey    String
-  width            Int      @default(120)
-  height           Int      @default(15)
-  boundary         Json
-  initialState     Json
-  stableState      Json
-  targetRegionIds  Json
-  targetAnswers    Json
-  stableGeneration Int
-  status           String   @default("ACTIVE")
-  metadata         Json     @default("{}")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  mode             ChallengeMode    @default(RANKED)
+  status           AttemptStatus    @default(CREATED)
+  scoreEligibility ScoreEligibility @default(NOT_ELIGIBLE)
 
-  game     Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  attempts GameAttempt[]
+  ruleSetVersionId     String
+  difficultyId         String?
+  difficultyVersion    Int?
+  contentPolicyId      String?
+  challengePolicyId    String?
+  operationLogPolicyId String?
+  contentResolvedType  ContentMode
+  puzzleId             String?
+  puzzleVersionId      String?
+  seed                 String?
+  generatedContentHash String?
+  policySnapshot       Json        @default("{}")
 
-  @@index([difficultyKey, status])
+  idempotencyKey String?
+  statusVersion  Int     @default(0)
+
+  startedAt       DateTime?
+  claimedAt       DateTime?
+  playingAt       DateTime?
+  submittedAt     DateTime?
+  completedAt     DateTime?
+  abandonedAt     DateTime?
+  timeoutAt       DateTime?
+  interruptedAt   DateTime?
+  invalidatedAt   DateTime?
+  expiresAt       DateTime?
+  lastHeartbeatAt DateTime?
+
+  durationMs       Int?
+  scoreValue       Decimal?                @db.Decimal(18, 6)
+  validationStatus AttemptValidationStatus @default(PENDING)
+  metricsSummary   Json                    @default("{}")
+  invalidReason    String?
+  abandonReason    String?
+  interruptReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game              Game                      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  runtimeSessions   AttemptRuntimeSession[]
+  operationLogs     AttemptOperationLog[]
+  operationBatches  AttemptOperationBatch[]
+  snapshots         AttemptSnapshot[]
+  submissions       GameSubmission[]
+  validationReports AttemptValidationReport[]
+  auditLogs         ChallengeAuditLog[]
+  scoreRecords      ScoreRecord[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, gameId, mode, status])
+  @@index([userId, mode, status])
+  @@index([gameId, mode, status])
+  @@index([gameId, difficultyId, status, completedAt])
+  @@index([puzzleVersionId])
+  @@index([ruleSetVersionId])
+  @@index([status, expiresAt])
+  @@index([status, lastHeartbeatAt])
+  @@index([userId, createdAt])
+  @@index([gameId, createdAt])
 }
 
-model LifeRegionSubmission {
-  id          String   @id @default(cuid())
-  attemptId   String
-  userId      String
-  regionId    Int
-  aliveCells  Json
-  correct     Boolean
-  submittedAt DateTime @default(now())
+model AttemptRuntimeSession {
+  id              String        @id @default(cuid())
+  attemptId       String
+  userId          String
+  entryTokenHash  String        @unique
+  playSessionId   String        @unique
+  status          AttemptStatus @default(CREATED)
+  claimedAt       DateTime?
+  lastHeartbeatAt DateTime?
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  revokedReason   String?
+  userAgent       String?
+  ipAddress       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, status])
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@index([status, lastHeartbeatAt])
+}
+
+model AttemptOperationLog {
+  id               String           @id @default(cuid())
+  attemptId        String
+  userId           String
+  gameId           String
+  playSessionId    String?
+  batchId          String?
+  seqStart         Int
+  seqEnd           Int
+  eventCount       Int              @default(1)
+  logMode          OperationLogMode
+  eventType        String
+  payload          Json
+  payloadHash      String?
+  clientCreatedAt  DateTime?
+  serverReceivedAt DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, seqStart, seqEnd])
+  @@index([attemptId, seqStart])
+  @@index([userId, createdAt])
+  @@index([gameId, createdAt])
+  @@index([batchId])
+  @@index([createdAt])
+}
+
+model AttemptOperationBatch {
+  id             String      @id @default(cuid())
+  attemptId      String
+  userId         String?
+  playSessionId  String?
+  startSeq       Int
+  endSeq         Int
+  operationCount Int
+  payloadHash    String
+  status         BatchStatus @default(ACCEPTED)
+  rejectReason   String?
+  createdAt      DateTime    @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, startSeq, endSeq])
+  @@index([attemptId, createdAt])
+}
+
+model AttemptSnapshot {
+  id           String       @id @default(cuid())
+  attemptId    String
+  seq          Int
+  snapshotType SnapshotType
+  state        Json?
+  stateHash    String
+  storageKey   String?
+  compressed   Boolean      @default(false)
+  metadata     Json         @default("{}")
+  createdAt    DateTime     @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, seq, snapshotType])
+  @@index([attemptId, seq])
+  @@index([snapshotType, createdAt])
+  @@index([createdAt])
+}
+
+model GameSubmission {
+  id               String         @id @default(cuid())
+  attemptId        String
+  userId           String
+  gameId           String
+  playSessionId    String
+  submissionType   SubmissionType
+  idempotencyKey   String
+  roundIndex       Int?
+  regionId         String?
+  seq              Int?
+  payload          Json
+  payloadHash      String
+  validationPassed Boolean?
+  validationResult Json           @default("{}")
+  errorReason      String?
+  submittedAt      DateTime       @default(now())
 
   attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([attemptId])
-  @@index([userId])
+  @@unique([attemptId, idempotencyKey])
+  @@index([attemptId, submissionType])
+  @@index([attemptId, roundIndex])
   @@index([attemptId, regionId])
+  @@index([userId, submittedAt])
+  @@index([gameId, submittedAt])
 }
 
+model AttemptValidationReport {
+  id               String   @id @default(cuid())
+  attemptId        String
+  gameId           String
+  validatorKey     String
+  validatorVersion String?
+  passed           Boolean
+  scoreAccepted    Boolean  @default(false)
+  antiCheatFlags   Json     @default("[]")
+  metrics          Json     @default("{}")
+  report           Json     @default("{}")
+  errorReason      String?
+  isFinal          Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, isFinal])
+  @@index([gameId, createdAt])
+  @@index([passed, createdAt])
+}
+
+model ChallengeAuditLog {
+  id            String         @id @default(cuid())
+  attemptId     String
+  userId        String?
+  gameId        String?
+  action        String
+  fromStatus    AttemptStatus?
+  toStatus      AttemptStatus?
+  reason        String?
+  requestId     String?
+  playSessionId String?
+  metadata      Json           @default("{}")
+  ipAddress     String?
+  createdAt     DateTime       @default(now())
+
+  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, createdAt])
+  @@index([userId, createdAt])
+  @@index([gameId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 5. Idempotency
+// ════════════════════════════════════════════════════════════════════════════
+
+model IdempotencyRecord {
+  id           String            @id @default(cuid())
+  userId       String
+  key          String
+  route        String
+  requestHash  String
+  status       IdempotencyStatus @default(PROCESSING)
+  responseBody Json?
+  resourceType String?
+  resourceId   String?
+  lockedUntil  DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@unique([userId, key])
+  @@index([expiresAt])
+  @@index([status, lockedUntil])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 6. Leaderboard & Score
+// ════════════════════════════════════════════════════════════════════════════
+
+model LeaderboardDefinition {
+  id              String                @id @default(cuid())
+  gameId          String
+  slug            String
+  name            String
+  description     String?
+  scope           LeaderboardScope      @default(GLOBAL)
+  periodType      LeaderboardPeriodType @default(ALL_TIME)
+  mode            ChallengeMode?
+  difficultyId    String?
+  puzzleId        String?
+  rankMetric      String
+  rankDirection   RankDirection
+  tieBreakers     Json                  @default("[]")
+  entryPolicy     EntryPolicy           @default(BEST_PER_USER)
+  displayLimit    Int                   @default(100)
+  adminQueryLimit Int                   @default(1000)
+  visible         Boolean               @default(true)
+  status          ConfigStatus          @default(DRAFT)
+  metadata        Json                  @default("{}")
+  createdByUserId String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  game         Game                   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  periods      LeaderboardPeriod[]
+  scoreRecords ScoreRecord[]
+  bests        LeaderboardBest[]
+  rankCache    LeaderboardRankCache[]
+
+  @@unique([gameId, slug])
+  @@index([gameId, status, visible])
+  @@index([gameId, difficultyId, mode])
+  @@index([puzzleId])
+  @@index([scope, periodType])
+}
+
+model LeaderboardPeriod {
+  id            String                @id @default(cuid())
+  leaderboardId String
+  periodType    LeaderboardPeriodType
+  periodKey     String
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  timezone      String?
+  lockedAt      DateTime?
+  createdAt     DateTime              @default(now())
+
+  leaderboard LeaderboardDefinition @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardId, periodKey])
+  @@index([leaderboardId, periodStart, periodEnd])
+  @@index([periodType, periodKey])
+}
+
+model ScoreRecord {
+  id              String            @id @default(cuid())
+  leaderboardId   String
+  periodId        String?
+  attemptId       String
+  userId          String
+  gameId          String
+  difficultyId    String?
+  puzzleId        String?
+  puzzleVersionId String?
+  rankValue       Decimal           @db.Decimal(18, 6)
+  tieValue1       Decimal?          @db.Decimal(18, 6)
+  tieValue2       Decimal?          @db.Decimal(18, 6)
+  tieValue3       Decimal?          @db.Decimal(18, 6)
+  metrics         Json              @default("{}")
+  status          ScoreRecordStatus @default(ACTIVE)
+  visible         Boolean           @default(true)
+  submittedAt     DateTime
+  recordedAt      DateTime          @default(now())
+  revokedAt       DateTime?
+  revokedByUserId String?
+  revokedReason   String?
+
+  leaderboard LeaderboardDefinition @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+  attempt     GameAttempt           @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardId, attemptId])
+  @@index([leaderboardId, periodId, status, rankValue, tieValue1, tieValue2, tieValue3])
+  @@index([userId, leaderboardId, recordedAt])
+  @@index([gameId, difficultyId, recordedAt])
+  @@index([puzzleId, recordedAt])
+  @@index([status, recordedAt])
+}
+
+model LeaderboardBest {
+  id            String   @id @default(cuid())
+  leaderboardId String
+  periodId      String?
+  userId        String
+  scoreRecordId String
+  attemptId     String
+  rankValue     Decimal  @db.Decimal(18, 6)
+  tieValue1     Decimal? @db.Decimal(18, 6)
+  tieValue2     Decimal? @db.Decimal(18, 6)
+  tieValue3     Decimal? @db.Decimal(18, 6)
+  metrics       Json     @default("{}")
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  leaderboard LeaderboardDefinition @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardId, periodId, userId])
+  @@index([leaderboardId, periodId, rankValue, tieValue1, tieValue2, tieValue3])
+  @@index([userId, leaderboardId])
+}
+
+model LeaderboardRankCache {
+  id                  String   @id @default(cuid())
+  leaderboardId       String
+  periodId            String?
+  rankPosition        Int
+  userId              String
+  scoreRecordId       String
+  attemptId           String
+  displayNameSnapshot String
+  avatarUrlSnapshot   String?
+  rankValue           Decimal  @db.Decimal(18, 6)
+  metrics             Json     @default("{}")
+  generatedAt         DateTime @default(now())
+
+  leaderboard LeaderboardDefinition @relation(fields: [leaderboardId], references: [id], onDelete: Cascade)
+
+  @@unique([leaderboardId, periodId, rankPosition])
+  @@unique([leaderboardId, periodId, userId])
+  @@index([leaderboardId, periodId])
+  @@index([generatedAt])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 7. Admin & Audit
+// ════════════════════════════════════════════════════════════════════════════
+
+model AdminAuditLog {
+  id            String   @id @default(cuid())
+  actorUserId   String?
+  actorUsername String?
+  action        String
+  resourceType  String
+  resourceId    String?
+  before        Json?
+  after         Json?
+  metadata      Json     @default("{}")
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([resourceType, resourceId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+}
+
+model AdminReviewTask {
+  id                String       @id @default(cuid())
+  resourceType      String
+  resourceId        String
+  action            String
+  status            ConfigStatus @default(DRAFT)
+  requestPayload    Json         @default("{}")
+  reviewComment     String?
+  requestedByUserId String
+  reviewedByUserId  String?
+  reviewedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  requestedBy User  @relation("review_requests", fields: [requestedByUserId], references: [id], onDelete: Cascade)
+  reviewedBy  User? @relation("review_reviews", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId])
+  @@index([status, createdAt])
+  @@index([requestedByUserId, createdAt])
+  @@index([reviewedByUserId, reviewedAt])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 8. Data Lifecycle
+// ════════════════════════════════════════════════════════════════════════════
+
+model DataRetentionPolicy {
+  id                  String          @id @default(cuid())
+  tableName           String
+  dataClass           String
+  gameId              String?
+  mode                ChallengeMode?
+  onlineRetentionDays Int
+  archiveAfterDays    Int?
+  deleteAfterDays     Int?
+  action              RetentionAction
+  archiveFormat       ArchiveFormat?
+  enabled             Boolean         @default(true)
+  createdByUserId     String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@unique([tableName, dataClass, gameId, mode])
+  @@index([enabled, tableName])
+  @@index([gameId, mode])
+}
+
+model DataArchiveBatch {
+  id           String           @id @default(cuid())
+  policyId     String
+  tableName    String
+  partitionKey String?
+  rangeStart   DateTime
+  rangeEnd     DateTime
+  rowCount     Int              @default(0)
+  totalBytes   BigInt           @default(0)
+  status       CleanupRunStatus @default(PENDING)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  errorMessage String?
+  createdAt    DateTime         @default(now())
+
+  @@index([policyId, createdAt])
+  @@index([tableName, rangeStart, rangeEnd])
+  @@index([status, createdAt])
+}
+
+model DataArchiveObject {
+  id             String        @id @default(cuid())
+  archiveBatchId String
+  storageKey     String        @unique
+  format         ArchiveFormat
+  rowCount       Int           @default(0)
+  sizeBytes      BigInt        @default(0)
+  sha256         String
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+
+  @@index([archiveBatchId])
+  @@index([sha256])
+}
+
+model DataCleanupRun {
+  id            String           @id @default(cuid())
+  policyId      String?
+  jobName       String
+  tableName     String
+  action        RetentionAction
+  rangeStart    DateTime?
+  rangeEnd      DateTime?
+  matchedRows   Int              @default(0)
+  processedRows Int              @default(0)
+  status        CleanupRunStatus @default(PENDING)
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([jobName, createdAt])
+  @@index([tableName, action])
+  @@index([status, createdAt])
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// 9. Game-Specific Dictionary (Precise Character Building)
+// ════════════════════════════════════════════════════════════════════════════
+
 model CharacterRadical {
-  id           String   @id @default(cuid())
-  key          String   @unique
-  glyph        String
-  label        String
-  category     String
-  enabled      Boolean  @default(true)
-  metadata     Json     @default("{}")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  key       String   @unique
+  glyph     String
+  label     String
+  category  String
+  enabled   Boolean  @default(true)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   combinations CharacterCombination[]
+
+  @@index([category, enabled])
 }
 
 model CharacterRoot {
@@ -248,6 +1208,8 @@ model CharacterRoot {
   updatedAt       DateTime @updatedAt
 
   combinations CharacterCombination[]
+
+  @@index([complexityLevel, enabled])
 }
 
 model CharacterCombination {
@@ -270,138 +1232,4 @@ model CharacterCombination {
   @@unique([radicalId, rootId, resultChar])
   @@index([radicalId, rootId])
   @@index([difficulty, enabled])
-}
-
-model PreciseCharacterPuzzle {
-  id             String   @id @default(cuid())
-  difficultyKey  String
-  boardSize      Int      @default(6)
-  radicalPool    Json
-  cells          Json
-  solutionRounds Json
-  config         Json
-  status         String   @default("ACTIVE")
-  metadata       Json     @default("{}")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  game     Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  gameId   String
-  attempts GameAttempt[]
-
-  @@index([difficultyKey, status])
-}
-
-model PreciseCharacterRoundSubmission {
-  id                  String   @id @default(cuid())
-  attemptId           String
-  userId              String
-  roundIndex          Int
-  selectedRadicalKeys Json
-  selectedCellIndices Json
-  resultChars         Json?
-  combinationIds      Json?
-  correct             Boolean
-  errorReason         String?
-  submittedAt         DateTime @default(now())
-
-  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([attemptId])
-  @@index([userId])
-  @@index([attemptId, roundIndex])
-}
-
-// ─── Absolute Command ────────────────────────────────────────────────
-
-model AbsoluteCommandPuzzle {
-  id                  String   @id @default(cuid())
-  gameId              String
-  slug                String   @unique
-  title               String
-  description         String?
-  difficultyLabel     String?
-  season              Int      @default(13)
-  episode             Int      @default(2)
-  source              String?
-  status              String   @default("DRAFT")
-  currentVersionId    String?
-  publishedAt         DateTime?
-  maxDurationMs       Int      @default(3600000)
-  estimatedDuration   String?
-  optimalCommandCount Int?
-  metadata            Json     @default("{}")
-  createdByUserId     String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
-  game     Game                      @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  versions AbsoluteCommandPuzzleVersion[]
-  attempts GameAttempt[]
-
-  @@index([status])
-  @@index([difficultyLabel])
-}
-
-model AbsoluteCommandPuzzleVersion {
-  id                String   @id @default(cuid())
-  puzzleId          String
-  version           Int
-  size              Json
-  startCoord        Json
-  cells             Json
-  referenceSolution Json?
-  validationStatus  String   @default("UNVALIDATED")
-  validationReport  Json     @default("{}")
-  createdByUserId   String?
-  createdAt         DateTime @default(now())
-
-  puzzle AbsoluteCommandPuzzle @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
-
-  @@unique([puzzleId, version])
-  @@index([puzzleId])
-}
-
-model AbsoluteCommandLog {
-  id             String   @id @default(cuid())
-  attemptId      String
-  userId         String
-  index          Int
-  direction      String
-  fromCoord      Json
-  toCoord        Json
-  path           Json
-  stopReason     String
-  changedCells   Json     @default("[]")
-  snapshotBefore Json?
-  snapshotAfter  Json?
-  createdAt      DateTime @default(now())
-
-  attempt GameAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([attemptId])
-  @@unique([attemptId, index])
-}
-
-// ─── Admin Audit Log ────────────────────────────────────────────────
-
-model AdminAuditLog {
-  id            String   @id @default(cuid())
-  actorUserId   String?
-  actorUsername String?
-  action        String
-  resourceType  String
-  resourceId    String?
-  before        Json?
-  after         Json?
-  metadata      Json     @default("{}")
-  ipAddress     String?
-  createdAt     DateTime @default(now())
-
-  @@index([actorUserId])
-  @@index([action])
-  @@index([resourceType, resourceId])
-  @@index([createdAt])
 }

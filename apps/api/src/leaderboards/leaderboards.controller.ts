@@ -1,23 +1,37 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { LeaderboardsService } from './leaderboards.service';
 
-@Controller()
+@Controller('leaderboards')
+@UseGuards(JwtAuthGuard)
 export class LeaderboardsController {
-  constructor(private leaderboardsService: LeaderboardsService) {}
+  constructor(private svc: LeaderboardsService) {}
 
-  @Get('games/:slug/leaderboards')
-  async getByGame(@Param('slug') slug: string) {
-    return this.leaderboardsService.getLeaderboardsByGame(slug);
+  @Get()
+  list(@Query() q: any) {
+    return this.svc.list({
+      gameId: q.gameId, difficultyId: q.difficultyId,
+      mode: q.mode, periodType: q.periodType,
+    });
   }
 
-  @Get('leaderboards/:leaderboardSlug/entries')
-  async getEntries(
-    @Param('leaderboardSlug') leaderboardSlug: string,
-    @Query('limit') limit?: string,
-    @Query('offset') offset?: string,
+  @Get(':slug')
+  detail(
+    @Param('slug') slug: string,
+    @Query() q: any,
+    @CurrentUser() user: { id: string },
   ) {
-    const l = Math.min(Math.max(parseInt(limit || '50', 10) || 50, 1), 100);
-    const o = Math.max(parseInt(offset || '0', 10) || 0, 0);
-    return this.leaderboardsService.getEntries(leaderboardSlug, l, o);
+    return this.svc.detail(slug, {
+      periodKey: q.periodKey,
+      offset: q.offset ? +q.offset : undefined,
+      limit: q.limit ? +q.limit : undefined,
+      userId: user?.id,
+    });
+  }
+
+  @Get(':slug/periods')
+  periods(@Param('slug') slug: string, @Query('limit') limit?: string) {
+    return this.svc.listPeriods(slug, limit ? +limit : undefined);
   }
 }

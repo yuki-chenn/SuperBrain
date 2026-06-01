@@ -1,0 +1,27 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useTabStore } from '../../stores/useTabStore';
+import { useQuery } from '@tanstack/react-query';
+import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { apiRequest } from '../../lib/api-client';
+import { useState } from 'react';
+export default function LeaderboardDetailPage({ leaderboardId: leaderboardIdProp }) {
+    const { openTab } = useTabStore();
+    const leaderboardId = leaderboardIdProp || '';
+    const [page, setPage] = useState(1);
+    const pageSize = 50;
+    const { data: lbInfo } = useQuery({
+        queryKey: ['admin-lb-info', leaderboardId],
+        queryFn: () => apiRequest(`/admin/leaderboards/${leaderboardId}`),
+        enabled: !!leaderboardId,
+    });
+    const { data: entries, isLoading } = useQuery({
+        queryKey: ['admin-lb-entries', leaderboardId, page],
+        queryFn: () => apiRequest(`/admin/leaderboards/${leaderboardId}/entries?limit=${pageSize}&offset=${(page - 1) * pageSize}`),
+        enabled: !!leaderboardId,
+    });
+    const totalPages = entries ? Math.ceil(entries.total / pageSize) : 1;
+    return (_jsxs("div", { className: "p-6 max-w-7xl mx-auto space-y-6", children: [_jsxs("div", { children: [_jsx("button", { onClick: () => openTab({ id: '/leaderboards', title: '排行榜', path: '/leaderboards' }), className: "text-sm text-[var(--sb-text-muted)] hover:text-[var(--sb-text-primary)] cursor-pointer mb-1 inline-block", children: "\u2190 \u8FD4\u56DE\u6392\u884C\u699C" }), _jsx("h1", { className: "text-2xl font-bold text-[var(--sb-text-primary)]", children: lbInfo?.name || '排行榜详情' }), lbInfo && (_jsxs("div", { className: "flex items-center gap-3 mt-1 text-sm text-[var(--sb-text-muted)]", children: [_jsx(Badge, { variant: "default", children: lbInfo.gameSlug }), _jsxs("span", { children: ["\u6392\u5E8F\uFF1A", lbInfo.rankMetric, " ", lbInfo.rankDirection === 'ASC' ? '↑' : '↓'] }), _jsxs("span", { children: ["\u5171 ", entries?.total ?? 0, " \u6761\u8BB0\u5F55"] })] }))] }), isLoading ? (_jsx("div", { className: "text-center text-[var(--sb-text-muted)] py-8", children: "\u52A0\u8F7D\u4E2D..." })) : entries && entries.items.length > 0 ? (_jsx(Card, { children: _jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "w-full text-sm", children: [_jsx("thead", { children: _jsxs("tr", { className: "border-b border-[var(--sb-border)]", children: [_jsx("th", { className: "text-left py-3 px-4 text-[var(--sb-text-muted)] font-medium", children: "\u6392\u540D" }), _jsx("th", { className: "text-left py-3 px-4 text-[var(--sb-text-muted)] font-medium", children: "\u7528\u6237" }), _jsx("th", { className: "text-left py-3 px-4 text-[var(--sb-text-muted)] font-medium", children: "\u6392\u540D\u503C" }), _jsx("th", { className: "text-left py-3 px-4 text-[var(--sb-text-muted)] font-medium", children: "\u6307\u6807\u8BE6\u60C5" }), _jsx("th", { className: "text-left py-3 px-4 text-[var(--sb-text-muted)] font-medium", children: "\u6700\u4F73\u5C1D\u8BD5 ID" }), _jsx("th", { className: "text-left py-3 px-4 text-[var(--sb-text-muted)] font-medium", children: "\u5B8C\u6210\u65F6\u95F4" })] }) }), _jsx("tbody", { children: entries.items.map((entry) => (_jsxs("tr", { className: "border-b border-[var(--sb-border)] hover:bg-[var(--sb-bg-muted)]", children: [_jsxs("td", { className: "py-3 px-4 font-mono text-[var(--sb-text-muted)] font-semibold", children: ["#", entry.rank] }), _jsx("td", { className: "py-3 px-4 text-[var(--sb-text-primary)] font-medium", children: entry.user.username }), _jsx("td", { className: "py-3 px-4 font-mono text-[var(--sb-text-secondary)]", children: String(entry.rankValue) }), _jsx("td", { className: "py-3 px-4", children: entry.metrics ? (_jsx("div", { className: "space-y-1", children: Object.entries(entry.metrics).map(([key, value]) => (_jsxs("div", { className: "flex items-center gap-2 text-xs", children: [_jsx("span", { className: "text-[var(--sb-text-muted)] min-w-[100px]", children: key }), _jsx("span", { className: "text-[var(--sb-text-primary)] font-mono", children: String(value) })] }, key))) })) : (_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "-" })) }), _jsx("td", { className: "py-3 px-4 font-mono text-[var(--sb-text-muted)] text-xs", children: entry.bestAttemptId }), _jsx("td", { className: "py-3 px-4 text-[var(--sb-text-muted)] text-xs", children: entry.completedAt ? new Date(entry.completedAt).toLocaleString() : '-' })] }, entry.rank))) })] }) }) })) : (_jsx("div", { className: "text-center text-[var(--sb-text-muted)] py-8", children: "\u6682\u65E0\u6392\u884C\u699C\u6570\u636E" })), totalPages > 1 && (_jsxs("div", { className: "flex items-center justify-center gap-2", children: [_jsx(Button, { size: "sm", variant: "secondary", disabled: page <= 1, onClick: () => setPage(p => p - 1), children: "\u4E0A\u4E00\u9875" }), _jsxs("span", { className: "text-sm text-[var(--sb-text-muted)] px-3", children: [page, " / ", totalPages] }), _jsx(Button, { size: "sm", variant: "secondary", disabled: page >= totalPages, onClick: () => setPage(p => p + 1), children: "\u4E0B\u4E00\u9875" })] }))] }));
+}
+//# sourceMappingURL=leaderboard-detail.js.map

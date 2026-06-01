@@ -16,7 +16,10 @@ export async function refreshApi(): Promise<{ user: User; accessToken: string }>
     method: 'POST',
     credentials: 'include',
   });
-  if (!res.ok) throw new Error('Refresh failed');
+  if (!res.ok) {
+    // Silently handle 401 - expected when no valid session exists
+    throw new Error('No valid session');
+  }
   return res.json();
 }
 

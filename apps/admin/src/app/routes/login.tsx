@@ -16,7 +16,7 @@ export default function AdminLoginPage() {
     mutationFn: () => login(form),
     onSuccess: () => {
       const user = useAuthStore.getState().user;
-      if (user?.role !== 'ADMIN') {
+      if (!user?.permissionKeys?.some((k) => k.startsWith('user:') || k.startsWith('game:') || k.startsWith('puzzle:'))) {
         setError('此账号没有管理员权限');
         useAuthStore.getState().logout();
         return;

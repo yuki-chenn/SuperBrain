@@ -19,6 +19,7 @@ import LeaderboardDetailPage from '../app/routes/leaderboard-detail';
 import AttemptsPage from '../app/routes/attempts';
 import AttemptDetailPage from '../app/routes/attempt-detail';
 import AuditPage from '../app/routes/audit';
+import DatabasePage from '../app/routes/database';
 
 // ─── Path matching ──────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ const ROUTE_MATCHERS: RouteMatch[] = [
   { pattern: /^\/attempts$/, component: AttemptsPage, extractParams: () => ({}) },
   { pattern: /^\/attempts\/([^/]+)$/, component: AttemptDetailPage, extractParams: (m) => ({ attemptId: m[1] }) },
   { pattern: /^\/audit$/, component: AuditPage, extractParams: () => ({}) },
+  { pattern: /^\/database$/, component: DatabasePage, extractParams: () => ({}) },
 ];
 
 function matchRoute(path: string) {

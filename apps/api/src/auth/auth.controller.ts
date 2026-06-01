@@ -7,6 +7,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { CookieService } from './cookie.service';
@@ -36,10 +37,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.register(body, this.getContext(req));
-    this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
+    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
     return { user: result.user, accessToken: result.accessToken };
   }
 
+  @Throttle({ login: { ttl: 60_000, limit: 5 } })
   @Post('login')
   async login(
     @Body(new ZodPipe(LoginSchema)) body: { emailOrUsername: string; password: string },
@@ -47,26 +49,20 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(body, this.getContext(req));
-    this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
+    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
     return { user: result.user, accessToken: result.accessToken };
   }
 
   @Post('refresh')
-  async refresh(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const token = (req as any).cookies?.refresh_token;
     const result = await this.authService.refresh(token, this.getContext(req));
-    this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
+    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
     return { user: result.user, accessToken: result.accessToken };
   }
 
   @Post('logout')
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const token = (req as any).cookies?.refresh_token;
     await this.authService.logout(token);
     this.cookieService.clearRefreshTokenCookie(res);
@@ -75,10 +71,7 @@ export class AuthController {
 
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
-  async logoutAll(
-    @CurrentUser() user: { id: string },
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logoutAll(@CurrentUser() user: { id: string }, @Res({ passthrough: true }) res: Response) {
     await this.authService.logoutAll(user.id);
     this.cookieService.clearRefreshTokenCookie(res);
     return { success: true };

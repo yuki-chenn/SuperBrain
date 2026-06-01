@@ -1,4 +1,4 @@
-import { createRouter, createRootRoute, createRoute, redirect, Outlet } from '@tanstack/react-router';
+import { createRouter, createRootRoute, createRoute, Outlet, Navigate } from '@tanstack/react-router';
 import { useAuthStore } from '../features/auth/auth-store';
 import { AdminShell } from '../layouts/AdminShell';
 
@@ -18,10 +18,10 @@ function AdminGuard() {
   }
 
   if (status === 'anonymous') {
-    throw redirect({ to: '/login' });
+    return <Navigate to="/login" />;
   }
 
-  if (user?.role !== 'ADMIN') {
+  if (!user?.permissionKeys?.some((k) => k.startsWith('user:') || k.startsWith('game:') || k.startsWith('puzzle:'))) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold text-[var(--sb-text-primary)]">403 Forbidden</h1>

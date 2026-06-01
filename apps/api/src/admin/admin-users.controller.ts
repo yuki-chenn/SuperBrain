@@ -1,80 +1,76 @@
-import {
-  Controller, Get, Patch, Post, Param, Body, Query, UseGuards, ForbiddenException,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { AdminGuard } from '../common/guards/admin.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PermissionGuard } from '../common/guards/permission.guard';
+import { RequirePermission } from '../common/decorators/permission.decorator';
 import { AdminUsersService } from './admin-users.service';
+import { UsersService } from '../users/users.service';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('admin/users')
-@UseGuards(JwtAuthGuard, AdminGuard)
+@UseGuards(JwtAuthGuard, PermissionGuard)
 export class AdminUsersController {
-  constructor(private usersService: AdminUsersService) {}
+  constructor(
+    private adminUsers: AdminUsersService,
+    private users: UsersService,
+  ) {}
 
   @Get()
-  async listUsers(
-    @Query('keyword') keyword?: string,
+  @RequirePermission('user:read')
+  list(
+    @Query('search') search?: string,
     @Query('status') status?: string,
-    @Query('role') role?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
   ) {
-    return this.usersService.list({
-      keyword, status, role,
+    return this.adminUsers.paginate({
+      search, status,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
     });
   }
 
   @Get(':id')
-  async getUser(@Param('id') id: string) {
-    return this.usersService.getDetail(id);
-  }
-
-  @Patch(':id')
-  async updateUser(
-    @CurrentUser() admin: { id: string; username: string },
-    @Param('id') id: string,
-    @Body() body: { role?: string },
-  ) {
-    return this.usersService.update(id, body, admin);
+  @RequirePermission('user:read')
+  detail(@Param('id') id: string) {
+    return this.adminUsers.getDetail(id);
   }
 
   @Post(':id/ban')
-  async banUser(
-    @CurrentUser() admin: { id: string; username: string },
-    @Param('id') id: string,
-  ) {
-    return this.usersService.ban(id, admin);
+  @RequirePermission('user:ban')
+  ban(@Param('id') id: string) {
+    return this.adminUsers.ban(id);
   }
 
   @Post(':id/unban')
-  async unbanUser(
-    @CurrentUser() admin: { id: string; username: string },
-    @Param('id') id: string,
-  ) {
-    return this.usersService.unban(id, admin);
+  @RequirePermission('user:ban')
+  unban(@Param('id') id: string) {
+    return this.adminUsers.unban(id);
   }
 
-  @Get(':id/sessions')
-  async getSessions(@Param('id') id: string) {
-    return this.usersService.getSessions(id);
+  @Get(':id/roles')
+  @RequirePermission('role:read')
+  listRoles(@Param('id') id: string) {
+    return this.users.listRolesForUser(id);
   }
 
-  @Post(':id/sessions/:sessionId/revoke')
-  async revokeSession(
-    @CurrentUser() admin: { id: string; username: string },
+  @Post(':id/roles')
+  @RequirePermission('role:assign')
+  async assignRole(
     @Param('id') id: string,
-    @Param('sessionId') sessionId: string,
+    @Body() body: { roleKey: string },
+    @CurrentUser() actor: { id: string; permissionKeys?: string[] },
   ) {
-    return this.usersService.revokeSession(id, sessionId, admin);
+    if (body.roleKey === 'super_admin' && !actor.permissionKeys?.includes('role:assign-super-admin')) {
+      const err: any = new Error('forbidden');
+      err.status = 403;
+      throw err;
+    }
+    return this.users.assignRoleByKey(id, body.roleKey, actor.id);
   }
 
-  @Post(':id/sessions/revoke-all')
-  async revokeAllSessions(
-    @CurrentUser() admin: { id: string; username: string },
-    @Param('id') id: string,
-  ) {
-    return this.usersService.revokeAllSessions(id, admin);
+  @Delete(':id/roles/:roleKey')
+  @RequirePermission('role:assign')
+  revokeRole(@Param('id') id: string, @Param('roleKey') roleKey: string) {
+    return this.users.revokeRoleByKey(id, roleKey);
   }
 }
