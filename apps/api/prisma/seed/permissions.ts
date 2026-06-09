@@ -70,6 +70,9 @@ export const PERMISSION_CATALOG: ReadonlyArray<{
   // Data lifecycle
   { key: 'data-retention:manage', resource: 'data-retention', action: 'manage', description: '配置数据保留策略' },
   { key: 'data-archive:trigger', resource: 'data-archive', action: 'trigger', description: '手动触发归档任务' },
+
+  // Database browser
+  { key: 'database:read', resource: 'database', action: 'read', description: '查看数据库表与数据' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient): Promise<void> {
