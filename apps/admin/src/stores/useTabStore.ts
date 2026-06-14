@@ -13,6 +13,7 @@ interface TabStore {
   activeTabId: string;
   openTab: (tab: Omit<Tab, 'closeable'> & { closeable?: boolean }) => void;
   closeTab: (tabId: string) => void;
+  closeAllTabs: () => void;
   setActiveTab: (tabId: string) => void;
   updateTabTitle: (tabId: string, title: string) => void;
 }
@@ -57,6 +58,12 @@ export const useTabStore = create<TabStore>()(
         }
 
         set({ tabs: remaining, activeTabId: newActiveId });
+      },
+
+      closeAllTabs: () => {
+        const { tabs } = get();
+        const remaining = tabs.filter((t) => !t.closeable);
+        set({ tabs: remaining.length > 0 ? remaining : [DEFAULT_TAB], activeTabId: remaining.length > 0 ? remaining[0].id : DEFAULT_TAB.id });
       },
 
       setActiveTab: (tabId) => {

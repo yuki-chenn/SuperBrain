@@ -69,6 +69,24 @@ export class AdminPuzzlesService {
 
   // ─── Versions ───
 
+  async listVersions(query: { gameId?: string; status?: string; page?: number; pageSize?: number }) {
+    const page = query.page ?? 1;
+    const pageSize = Math.min(query.pageSize ?? 50, 200);
+    const where: any = {};
+    if (query.gameId) where.puzzle = { gameId: query.gameId };
+    if (query.status) where.status = query.status;
+    const [items, total] = await Promise.all([
+      this.prisma.puzzleVersion.findMany({
+        where,
+        include: { puzzle: { select: { id: true, gameId: true, title: true, slug: true, currentVersionId: true } } },
+        orderBy: [{ puzzle: { gameId: 'asc' } }, { puzzle: { title: 'asc' } }, { version: 'desc' }],
+        skip: (page - 1) * pageSize, take: pageSize,
+      }),
+      this.prisma.puzzleVersion.count({ where }),
+    ]);
+    return { items, total, page, pageSize };
+  }
+
   async createVersion(puzzleId: string, body: { engineKey: string; content: unknown }) {
     const max = await this.prisma.puzzleVersion.aggregate({ where: { puzzleId }, _max: { version: true } });
     return this.prisma.puzzleVersion.create({

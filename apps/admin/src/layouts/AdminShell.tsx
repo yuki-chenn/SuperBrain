@@ -20,6 +20,21 @@ import AttemptsPage from '../app/routes/attempts';
 import AttemptDetailPage from '../app/routes/attempt-detail';
 import AuditPage from '../app/routes/audit';
 import DatabasePage from '../app/routes/database';
+import PermissionsPage from '../app/routes/permissions';
+import RolesPage from '../app/routes/roles';
+import RoleDetailPage from '../app/routes/role-detail';
+import DifficultiesPage from '../app/routes/difficulties';
+import DifficultyDetailPage from '../app/routes/difficulty-detail';
+import ContentPoliciesPage from '../app/routes/content-policies';
+import ContentPolicyDetailPage from '../app/routes/content-policy-detail';
+import RuleVersionsPage from '../app/routes/rule-versions';
+import RuleVersionDetailPage from '../app/routes/rule-version-detail';
+import ChallengePoliciesPage from '../app/routes/challenge-policies';
+import ChallengePolicyDetailPage from '../app/routes/challenge-policy-detail';
+import PuzzleListPage from '../app/routes/puzzle-list';
+import PuzzleEditPage from '../app/routes/puzzle-edit';
+import PuzzleVersionsPage from '../app/routes/puzzle-versions';
+import SessionsPage from '../app/routes/sessions';
 
 // ─── Path matching ──────────────────────────────────────────────────
 
@@ -46,7 +61,22 @@ const ROUTE_MATCHERS: RouteMatch[] = [
   { pattern: /^\/attempts$/, component: AttemptsPage, extractParams: () => ({}) },
   { pattern: /^\/attempts\/([^/]+)$/, component: AttemptDetailPage, extractParams: (m) => ({ attemptId: m[1] }) },
   { pattern: /^\/audit$/, component: AuditPage, extractParams: () => ({}) },
+  { pattern: /^\/sessions$/, component: SessionsPage, extractParams: () => ({}) },
   { pattern: /^\/database$/, component: DatabasePage, extractParams: () => ({}) },
+  { pattern: /^\/permissions$/, component: PermissionsPage, extractParams: () => ({}) },
+  { pattern: /^\/roles$/, component: RolesPage, extractParams: () => ({}) },
+  { pattern: /^\/roles\/([^/]+)$/, component: RoleDetailPage, extractParams: (m) => ({ roleId: m[1] }) },
+  { pattern: /^\/difficulties$/, component: DifficultiesPage, extractParams: () => ({}) },
+  { pattern: /^\/difficulties\/([^/]+)$/, component: DifficultyDetailPage, extractParams: (m) => ({ difficultyId: m[1] }) },
+  { pattern: /^\/content-policies$/, component: ContentPoliciesPage, extractParams: () => ({}) },
+  { pattern: /^\/content-policies\/([^/]+)$/, component: ContentPolicyDetailPage, extractParams: (m) => ({ contentPolicyId: m[1] }) },
+  { pattern: /^\/rule-versions$/, component: RuleVersionsPage, extractParams: () => ({}) },
+  { pattern: /^\/rule-versions\/([^/]+)$/, component: RuleVersionDetailPage, extractParams: (m) => ({ ruleVersionId: m[1] }) },
+  { pattern: /^\/challenge-policies$/, component: ChallengePoliciesPage, extractParams: () => ({}) },
+  { pattern: /^\/challenge-policies\/([^/]+)$/, component: ChallengePolicyDetailPage, extractParams: (m) => ({ challengePolicyId: m[1] }) },
+  { pattern: /^\/puzzle-versions$/, component: PuzzleVersionsPage, extractParams: () => ({}) },
+  { pattern: /^\/puzzle-edit\/([^/]+)$/, component: PuzzleEditPage, extractParams: (m) => ({ puzzleId: m[1] }) },
+  { pattern: /^\/puzzles\/([^/]+)$/, component: PuzzleListPage, extractParams: (m) => ({ gameId: m[1] }) },
 ];
 
 function matchRoute(path: string) {
@@ -96,7 +126,7 @@ export function AdminShell() {
 
       <div className="flex-1 flex min-h-0">
         <AdminSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <TabBar />
           <main className="flex-1 min-h-0 overflow-hidden bg-[var(--sb-bg)]">
             {tabs.map((tab) => (

@@ -36,8 +36,9 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const client = req.headers['x-client'] as string | undefined;
     const result = await this.authService.register(body, this.getContext(req));
-    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
+    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken, client);
     return { user: result.user, accessToken: result.accessToken };
   }
 
@@ -48,35 +49,42 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const client = req.headers['x-client'] as string | undefined;
     const result = await this.authService.login(body, this.getContext(req));
-    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
+    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken, client);
     return { user: result.user, accessToken: result.accessToken };
   }
 
   @Post('refresh')
   async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const token = (req as any).cookies?.refresh_token;
+    const client = req.headers['x-client'] as string | undefined;
+    const cookies = (req as any).cookies || {};
+    const token = client === 'admin' ? cookies.admin_refresh_token : cookies.refresh_token;
     const result = await this.authService.refresh(token, this.getContext(req));
-    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken);
+    if (result.refreshToken) this.cookieService.setRefreshTokenCookie(res, result.refreshToken, client);
     return { user: result.user, accessToken: result.accessToken };
   }
 
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const token = (req as any).cookies?.refresh_token;
+    const client = req.headers['x-client'] as string | undefined;
+    const cookies = (req as any).cookies || {};
+    const token = client === 'admin' ? cookies.admin_refresh_token : cookies.refresh_token;
     await this.authService.logout(token);
-    this.cookieService.clearRefreshTokenCookie(res);
+    this.cookieService.clearRefreshTokenCookie(res, client);
     return { success: true };
   }
 
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
-  async logoutAll(@CurrentUser() user: { id: string }, @Res({ passthrough: true }) res: Response) {
+  async logoutAll(@CurrentUser() user: { id: string }, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const client = req.headers['x-client'] as string | undefined;
     await this.authService.logoutAll(user.id);
-    this.cookieService.clearRefreshTokenCookie(res);
+    this.cookieService.clearRefreshTokenCookie(res, client);
     return { success: true };
   }
 
+  @Throttle({ default: { limit: 0 } })
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: { id: string }) {

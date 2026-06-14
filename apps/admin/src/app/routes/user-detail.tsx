@@ -1,6 +1,7 @@
 import { useTabStore } from '../../stores/useTabStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminGetUserApi, adminBanUserApi, adminUnbanUserApi, adminUpdateUserRoleApi, adminRevokeSessionApi, adminRevokeAllSessionsApi } from '../../features/users/api';
+import { adminListRolesApi, adminListUserRolesApi, adminAssignRoleApi, adminRevokeRoleApi, type AdminRole } from '../../features/roles/api';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
@@ -53,6 +54,7 @@ export default function UserDetailPage({ userId: userIdProp }: UserDetailPagePro
 
   const tabs = [
     { key: 'info', label: '基本信息' },
+    { key: 'roles', label: '角色分配' },
     { key: 'sessions', label: `会话 (${user.sessions?.length || 0})` },
   ];
 
@@ -65,8 +67,6 @@ export default function UserDetailPage({ userId: userIdProp }: UserDetailPagePro
           <p className="text-sm text-[var(--sb-text-muted)]">{user.email}</p>
         </div>
         <div className="flex gap-2">
-          {user.role === 'USER' && <Button size="sm" onClick={() => roleMutation.mutate('ADMIN')}>设为管理员</Button>}
-          {user.role === 'ADMIN' && <Button size="sm" variant="secondary" onClick={() => roleMutation.mutate('USER')}>取消管理员</Button>}
           {user.status === 'ACTIVE' ? (
             <Button size="sm" variant="danger" onClick={() => banMutation.mutate()}>封禁用户</Button>
           ) : (
@@ -89,6 +89,10 @@ export default function UserDetailPage({ userId: userIdProp }: UserDetailPagePro
             <div><span className="text-[var(--sb-text-muted)]">注册时间: </span><span className="text-[var(--sb-text-primary)]">{new Date(user.createdAt).toLocaleString()}</span></div>
           </div>
         </Card>
+      )}
+
+      {activeTab === 'roles' && (
+        <UserRoleAssignment userId={userId} />
       )}
 
       {activeTab === 'sessions' && (
@@ -124,5 +128,117 @@ export default function UserDetailPage({ userId: userIdProp }: UserDetailPagePro
         </Card>
       )}
     </div>
+  );
+}
+
+// ─── Role assignment sub-component ────────────────────────────────
+
+function UserRoleAssignment({ userId }: { userId: string }) {
+  const queryClient = useQueryClient();
+
+  const { data: userRoles, isLoading: userRolesLoading } = useQuery({
+    queryKey: ['admin-user-roles', userId],
+    queryFn: () => adminListUserRolesApi(userId),
+  });
+
+  const { data: allRoles, isLoading: allRolesLoading } = useQuery({
+    queryKey: ['admin-roles'],
+    queryFn: adminListRolesApi,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (roleKey: string) => adminAssignRoleApi(userId, roleKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles', userId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user', userId] });
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: (roleKey: string) => adminRevokeRoleApi(userId, roleKey),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles', userId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user', userId] });
+    },
+  });
+
+  const [selectedRole, setSelectedRole] = useState('');
+
+  const userRoleKeys = new Set(userRoles?.map((r) => r.roleKey) || []);
+  const availableRoles = allRoles?.filter((r) => !userRoleKeys.has(r.key)) || [];
+
+  const handleAssign = () => {
+    if (!selectedRole) return;
+    assignMutation.mutate(selectedRole);
+    setSelectedRole('');
+  };
+
+  if (userRolesLoading || allRolesLoading) {
+    return <Card><div className="text-center text-[var(--sb-text-muted)] py-4">加载中...</div></Card>;
+  }
+
+  return (
+    <Card>
+      <div className="space-y-4">
+        {/* Current roles */}
+        <div>
+          <h3 className="text-sm font-medium text-[var(--sb-text-primary)] mb-3">当前角色</h3>
+          {userRoles && userRoles.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {userRoles.map((ur) => (
+                <div
+                  key={ur.roleKey}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--sb-primary-soft)] border border-[var(--sb-primary)]/20 rounded-lg"
+                >
+                  <span className="text-sm text-[var(--sb-primary)] font-medium">{ur.roleName}</span>
+                  <span className="text-xs text-[var(--sb-text-muted)]">({ur.roleKey})</span>
+                  <button
+                    onClick={() => {
+                      if (confirm(`确定移除角色 "${ur.roleName}"？`)) revokeMutation.mutate(ur.roleKey);
+                    }}
+                    className="ml-1 text-[var(--sb-text-muted)] hover:text-[var(--sb-danger)] cursor-pointer text-lg leading-none border-none bg-transparent"
+                    title="移除角色"
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--sb-text-muted)]">暂无分配角色</p>
+          )}
+        </div>
+
+        {/* Add role */}
+        <div>
+          <h3 className="text-sm font-medium text-[var(--sb-text-primary)] mb-3">添加角色</h3>
+          {availableRoles.length > 0 ? (
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedRole}
+                onChange={(e) => setSelectedRole(e.target.value)}
+                className="flex-1 bg-[var(--sb-bg-muted)] border border-[var(--sb-border)] rounded-lg px-3 py-2.5 text-sm text-[var(--sb-text-primary)] outline-none cursor-pointer"
+              >
+                <option value="">选择角色...</option>
+                {availableRoles.map((r) => (
+                  <option key={r.id} value={r.key}>{r.name} ({r.key})</option>
+                ))}
+              </select>
+              <Button size="sm" disabled={!selectedRole || assignMutation.isPending} onClick={handleAssign}>
+                {assignMutation.isPending ? '添加中...' : '添加'}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--sb-text-muted)]">所有角色已分配</p>
+          )}
+        </div>
+
+        {(assignMutation.isError || revokeMutation.isError) && (
+          <p className="text-sm text-[var(--sb-danger)]">
+            {(assignMutation.error as any)?.body?.message || (revokeMutation.error as any)?.body?.message || '操作失败'}
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }

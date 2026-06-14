@@ -5,6 +5,7 @@ import { RequirePermission } from '../common/decorators/permission.decorator';
 import { AdminUsersService } from './admin-users.service';
 import { UsersService } from '../users/users.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PermissionCacheService } from '../auth/permission-cache.service';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -12,6 +13,7 @@ export class AdminUsersController {
   constructor(
     private adminUsers: AdminUsersService,
     private users: UsersService,
+    private permCache: PermissionCacheService,
   ) {}
 
   @Get()
@@ -65,12 +67,16 @@ export class AdminUsersController {
       err.status = 403;
       throw err;
     }
-    return this.users.assignRoleByKey(id, body.roleKey, actor.id);
+    const result = await this.users.assignRoleByKey(id, body.roleKey, actor.id);
+    await this.permCache.invalidate(id);
+    return result;
   }
 
   @Delete(':id/roles/:roleKey')
   @RequirePermission('role:assign')
-  revokeRole(@Param('id') id: string, @Param('roleKey') roleKey: string) {
-    return this.users.revokeRoleByKey(id, roleKey);
+  async revokeRole(@Param('id') id: string, @Param('roleKey') roleKey: string) {
+    const result = await this.users.revokeRoleByKey(id, roleKey);
+    await this.permCache.invalidate(id);
+    return result;
   }
 }

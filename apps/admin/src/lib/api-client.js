@@ -38,6 +38,7 @@ export async function apiRequest(path, options = {}) {
     const token = useAuthStore.getState().accessToken;
     const headers = {
         'Content-Type': 'application/json',
+        'X-Client': 'admin',
         ...options.headers,
     };
     if (token)

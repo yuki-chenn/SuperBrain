@@ -169,4 +169,142 @@ export class AdminGamesService {
       return tx.gameChallengePolicy.update({ where: { id }, data: { status: 'ACTIVE' } });
     });
   }
+
+  // ─ List / Detail / Update for sub-entities ─
+
+  async listDifficulties(filters: { gameId?: string; status?: string; key?: string }) {
+    const where: any = {};
+    if (filters.gameId) where.gameId = filters.gameId;
+    if (filters.status) where.status = filters.status;
+    if (filters.key) where.key = filters.key;
+    const items = await this.prisma.gameDifficulty.findMany({
+      where,
+      include: { game: { select: { id: true, title: true, slug: true } } },
+      orderBy: [{ gameId: 'asc' }, { key: 'asc' }, { version: 'desc' }],
+    });
+    return { items, total: items.length };
+  }
+
+  async getDifficulty(id: string) {
+    const item = await this.prisma.gameDifficulty.findUnique({
+      where: { id },
+      include: { game: { select: { id: true, title: true, slug: true } } },
+    });
+    if (!item) throw new NotFoundException();
+    const contentPolicies = await this.prisma.gameContentPolicy.findMany({ where: { difficultyId: id } });
+    const challengePolicies = await this.prisma.gameChallengePolicy.findMany({ where: { difficultyId: id } });
+    return { ...item, contentPolicies, challengePolicies };
+  }
+
+  async updateDifficulty(id: string, body: any) {
+    const data: any = {};
+    if (body.label !== undefined) data.label = body.label;
+    if (body.sortOrder !== undefined) data.sortOrder = body.sortOrder;
+    if (body.maxDurationMs !== undefined) data.maxDurationMs = body.maxDurationMs;
+    if (body.config !== undefined) { data.config = body.config; data.configHash = stableHash(body.config); }
+    return this.prisma.gameDifficulty.update({ where: { id }, data });
+  }
+
+  async listContentPolicies(filters: { gameId?: string; difficultyId?: string; status?: string }) {
+    const where: any = {};
+    if (filters.gameId) where.gameId = filters.gameId;
+    if (filters.difficultyId) where.difficultyId = filters.difficultyId;
+    if (filters.status) where.status = filters.status;
+    const items = await this.prisma.gameContentPolicy.findMany({
+      where,
+      include: {
+        game: { select: { id: true, title: true, slug: true } },
+      },
+      orderBy: [{ gameId: 'asc' }, { createdAt: 'desc' }],
+    });
+    return { items, total: items.length };
+  }
+
+  async getContentPolicy(id: string) {
+    const item = await this.prisma.gameContentPolicy.findUnique({
+      where: { id },
+      include: { game: { select: { id: true, title: true, slug: true } } },
+    });
+    if (!item) throw new NotFoundException();
+    return item;
+  }
+
+  async updateContentPolicy(id: string, body: any) {
+    const data: any = {};
+    if (body.difficultyId !== undefined) data.difficultyId = body.difficultyId;
+    if (body.contentMode !== undefined) data.contentMode = body.contentMode;
+    if (body.selectionStrategy !== undefined) data.selectionStrategy = body.selectionStrategy;
+    if (body.generatorKey !== undefined) data.generatorKey = body.generatorKey;
+    if (body.generatorConfig !== undefined) data.generatorConfig = body.generatorConfig;
+    if (body.puzzlePoolFilter !== undefined) data.puzzlePoolFilter = body.puzzlePoolFilter;
+    if (body.scheduleGranularity !== undefined) data.scheduleGranularity = body.scheduleGranularity;
+    if (body.allowRepeatedPuzzle !== undefined) data.allowRepeatedPuzzle = body.allowRepeatedPuzzle;
+    if (body.repeatCooldownHours !== undefined) data.repeatCooldownHours = body.repeatCooldownHours;
+    if (body.weightConfig !== undefined) data.weightConfig = body.weightConfig;
+    return this.prisma.gameContentPolicy.update({ where: { id }, data });
+  }
+
+  async listRuleVersions(filters: { gameId?: string; status?: string }) {
+    const where: any = {};
+    if (filters.gameId) where.gameId = filters.gameId;
+    if (filters.status) where.status = filters.status;
+    const items = await this.prisma.gameRuleSetVersion.findMany({
+      where,
+      include: { game: { select: { id: true, title: true, slug: true } } },
+      orderBy: [{ gameId: 'asc' }, { version: 'desc' }],
+    });
+    return { items, total: items.length };
+  }
+
+  async getRuleVersion(id: string) {
+    const item = await this.prisma.gameRuleSetVersion.findUnique({
+      where: { id },
+      include: { game: { select: { id: true, title: true, slug: true } } },
+    });
+    if (!item) throw new NotFoundException();
+    return item;
+  }
+
+  async updateRuleVersion(id: string, body: any) {
+    const data: any = {};
+    if (body.name !== undefined) data.name = body.name;
+    if (body.engineKey !== undefined) data.engineKey = body.engineKey;
+    if (body.engineVersion !== undefined) data.engineVersion = body.engineVersion;
+    if (body.config !== undefined) { data.config = body.config; data.configHash = stableHash(body.config); }
+    return this.prisma.gameRuleSetVersion.update({ where: { id }, data });
+  }
+
+  async listChallengePolicies(filters: { gameId?: string; difficultyId?: string; status?: string }) {
+    const where: any = {};
+    if (filters.gameId) where.gameId = filters.gameId;
+    if (filters.difficultyId) where.difficultyId = filters.difficultyId;
+    if (filters.status) where.status = filters.status;
+    const items = await this.prisma.gameChallengePolicy.findMany({
+      where,
+      include: { game: { select: { id: true, title: true, slug: true } } },
+      orderBy: [{ gameId: 'asc' }, { createdAt: 'desc' }],
+    });
+    return { items, total: items.length };
+  }
+
+  async getChallengePolicy(id: string) {
+    const item = await this.prisma.gameChallengePolicy.findUnique({
+      where: { id },
+      include: { game: { select: { id: true, title: true, slug: true } } },
+    });
+    if (!item) throw new NotFoundException();
+    return item;
+  }
+
+  async updateChallengePolicy(id: string, body: any) {
+    const fields = [
+      'difficultyId', 'mode', 'allowResume', 'allowMultipleActive', 'requiresHeartbeat',
+      'heartbeatIntervalSec', 'heartbeatTimeoutSec', 'operationLogMode',
+      'operationBatchSize', 'snapshotEveryNEvents', 'saveInitialSnapshot',
+      'saveFinalSnapshot', 'eligibleForLeaderboard', 'maxSubmitRetry',
+    ];
+    const data: any = {};
+    for (const f of fields) if (body[f] !== undefined) data[f] = body[f];
+    return this.prisma.gameChallengePolicy.update({ where: { id }, data });
+  }
 }

@@ -12,7 +12,7 @@ function AdminGuard() {
     if (status === 'anonymous') {
         return _jsx(Navigate, { to: "/login" });
     }
-    if (!user?.permissionKeys?.some((k) => k.startsWith('user:') || k.startsWith('game:') || k.startsWith('puzzle:'))) {
+    if (!user?.permissionKeys?.some((k) => k.startsWith('user:') || k.startsWith('game:') || k.startsWith('puzzle:') || k.startsWith('role:') || k.startsWith('permission:') || k.startsWith('session:'))) {
         return (_jsxs("div", { className: "min-h-screen flex flex-col items-center justify-center gap-4", children: [_jsx("h1", { className: "text-2xl font-bold text-[var(--sb-text-primary)]", children: "403 Forbidden" }), _jsx("p", { className: "text-[var(--sb-text-secondary)]", children: "\u6CA1\u6709\u7BA1\u7406\u5458\u6743\u9650" }), _jsx("a", { href: "/", className: "text-[var(--sb-primary)] hover:underline", children: "\u8FD4\u56DE\u9996\u9875" })] }));
     }
     return _jsx(AdminShell, {});

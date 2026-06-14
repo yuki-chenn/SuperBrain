@@ -1,20 +1,12 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminGetGameApi, adminUpdateGameApi, adminPublishGameApi, adminArchiveGameApi, adminUpdateDimensionsApi } from '../../features/games/api';
+import { adminGetGameApi, adminUpdateGameApi, adminPublishGameApi, adminArchiveGameApi } from '../../features/games/api';
 import { useTabStore } from '../../stores/useTabStore';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { useState, useEffect } from 'react';
-const DEFAULT_DIMENSIONS = [
-    { key: 'observe', label: '观察', value: 3 },
-    { key: 'memory', label: '记忆', value: 3 },
-    { key: 'spatial', label: '空间', value: 3 },
-    { key: 'creative', label: '创造', value: 3 },
-    { key: 'reasoning', label: '推理', value: 3 },
-    { key: 'calculation', label: '计算', value: 3 },
-];
 export default function GameDetailPage({ gameId: gameIdProp } = {}) {
     const queryClient = useQueryClient();
     const { openTab } = useTabStore();
@@ -24,44 +16,44 @@ export default function GameDetailPage({ gameId: gameIdProp } = {}) {
         queryFn: () => adminGetGameApi(gameId),
         enabled: !!gameId,
     });
-    const [form, setForm] = useState({ title: '', subtitle: '', description: '', source: '', coverUrl: '' });
-    const [dimensions, setDimensions] = useState(DEFAULT_DIMENSIONS);
+    const [form, setForm] = useState({ title: '', subtitle: '', description: '', source: '', coverUrl: '', sortOrder: '0' });
+    const [dirty, setDirty] = useState(false);
     useEffect(() => {
         if (game) {
-            setForm({ title: game.title, subtitle: game.subtitle || '', description: game.description, source: game.source || '', coverUrl: game.coverUrl || '' });
-            const meta = game.metadata;
-            if (meta?.dimensions && Array.isArray(meta.dimensions)) {
-                setDimensions(meta.dimensions.map((d) => ({
-                    key: d.key,
-                    label: d.label,
-                    value: Math.max(1, Math.min(5, d.value)),
-                })));
-            }
+            setForm({
+                title: game.title, subtitle: game.subtitle || '', description: game.description,
+                source: game.source || '', coverUrl: game.coverUrl || '', sortOrder: String(game.sortOrder ?? 0),
+            });
+            setDirty(false);
         }
     }, [game]);
     const updateMutation = useMutation({
-        mutationFn: () => adminUpdateGameApi(gameId, form),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }),
+        mutationFn: () => adminUpdateGameApi(gameId, { ...form, sortOrder: parseInt(form.sortOrder) }),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }); setDirty(false); },
     });
-    const publishMutation = useMutation({
-        mutationFn: () => adminPublishGameApi(gameId),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }),
-    });
-    const archiveMutation = useMutation({
-        mutationFn: () => adminArchiveGameApi(gameId),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }),
-    });
-    const dimensionsMutation = useMutation({
-        mutationFn: () => adminUpdateDimensionsApi(gameId, dimensions),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }),
-    });
-    function handleDimensionChange(key, value) {
-        setDimensions((prev) => prev.map((d) => (d.key === key ? { ...d, value: Math.round(value * 10) / 10 } : d)));
-    }
+    const publishMutation = useMutation({ mutationFn: () => adminPublishGameApi(gameId), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }) });
+    const archiveMutation = useMutation({ mutationFn: () => adminArchiveGameApi(gameId), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-game', gameId] }) });
     if (isLoading)
         return _jsx("div", { className: "p-6 text-[var(--sb-text-muted)]", children: "\u52A0\u8F7D\u4E2D..." });
     if (!game)
         return _jsx("div", { className: "p-6 text-[var(--sb-text-muted)]", children: "\u6E38\u620F\u672A\u627E\u5230" });
-    return (_jsxs("div", { className: "p-6 max-w-4xl mx-auto space-y-6", children: [_jsx("button", { onClick: () => openTab({ id: '/games', title: '游戏管理', path: '/games' }), className: "text-sm text-[var(--sb-text-muted)] hover:text-[var(--sb-text-primary)] cursor-pointer inline-block", children: "\u2190 \u8FD4\u56DE\u6E38\u620F\u5217\u8868" }), _jsxs("div", { className: "flex items-center justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-2xl font-bold text-[var(--sb-text-primary)]", children: game.title }), _jsx("p", { className: "text-sm text-[var(--sb-text-muted)] font-mono", children: game.slug })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx(Badge, { variant: game.status === 'PUBLISHED' ? 'success' : game.status === 'ARCHIVED' ? 'default' : 'warning', children: game.status === 'PUBLISHED' ? '已发布' : game.status === 'ARCHIVED' ? '已归档' : '草稿' }), game.status === 'DRAFT' && _jsx(Button, { onClick: () => publishMutation.mutate(), children: "\u53D1\u5E03" }), game.status === 'PUBLISHED' && _jsx(Button, { variant: "danger", onClick: () => archiveMutation.mutate(), children: "\u5F52\u6863" }), game.status === 'ARCHIVED' && _jsx(Button, { onClick: () => publishMutation.mutate(), children: "\u91CD\u65B0\u53D1\u5E03" })] })] }), _jsxs(Card, { children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)] mb-4", children: "\u6E38\u620F\u4FE1\u606F" }), _jsxs("div", { className: "space-y-4", children: [_jsx(Input, { label: "\u6807\u9898", value: form.title, onChange: (e) => setForm(f => ({ ...f, title: e.target.value })) }), _jsx(Input, { label: "\u526F\u6807\u9898", value: form.subtitle, onChange: (e) => setForm(f => ({ ...f, subtitle: e.target.value })) }), _jsxs("div", { children: [_jsx("label", { className: "block text-sm text-[var(--sb-text-secondary)] mb-1.5", children: "\u63CF\u8FF0" }), _jsx("textarea", { value: form.description, onChange: (e) => setForm(f => ({ ...f, description: e.target.value })), rows: 3, className: "w-full px-3.5 py-2.5 bg-[var(--sb-bg-muted)] border border-[var(--sb-border)] rounded-[var(--sb-radius-input)] text-[var(--sb-text-primary)] focus:outline-none focus:border-[var(--sb-primary)] resize-none" })] }), _jsx(Input, { label: "\u6765\u6E90", value: form.source, onChange: (e) => setForm(f => ({ ...f, source: e.target.value })) }), _jsx(Input, { label: "\u5C01\u9762 URL", value: form.coverUrl, onChange: (e) => setForm(f => ({ ...f, coverUrl: e.target.value })) }), _jsx(Button, { onClick: () => updateMutation.mutate(), disabled: updateMutation.isPending, children: updateMutation.isPending ? '保存中...' : '保存修改' })] })] }), _jsxs(Card, { children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)] mb-4", children: "\u516D\u7EF4\u80FD\u529B" }), _jsxs("div", { className: "space-y-4", children: [dimensions.map((dim) => (_jsxs("div", { className: "flex items-center gap-4", children: [_jsx("span", { className: "w-16 text-sm text-[var(--sb-text-secondary)] shrink-0", children: dim.label }), _jsx("input", { type: "range", min: 1, max: 5, step: 0.1, value: dim.value, onChange: (e) => handleDimensionChange(dim.key, parseFloat(e.target.value)), className: "flex-1 h-2 bg-[var(--sb-bg-muted)] rounded-lg appearance-none cursor-pointer accent-[var(--sb-primary)]" }), _jsx("input", { type: "number", min: 1, max: 5, step: 0.1, value: dim.value, onChange: (e) => handleDimensionChange(dim.key, parseFloat(e.target.value) || 1), className: "w-16 px-2 py-1 text-center text-sm font-mono bg-[var(--sb-bg-muted)] border border-[var(--sb-border)] rounded text-[var(--sb-text-primary)] outline-none focus:border-[var(--sb-primary)]" })] }, dim.key))), _jsx(Button, { onClick: () => dimensionsMutation.mutate(), disabled: dimensionsMutation.isPending, children: dimensionsMutation.isPending ? '保存中...' : '保存六维能力' })] })] }), _jsxs(Card, { children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)] mb-4", children: "\u7EDF\u8BA1\u6570\u636E" }), _jsxs("div", { className: "grid grid-cols-2 gap-4 text-sm", children: [_jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u9898\u76EE\u6570: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: game.puzzleCount })] }), _jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u6311\u6218\u6B21\u6570: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: game.attemptCount })] }), _jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u521B\u5EFA\u65F6\u95F4: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: new Date(game.createdAt).toLocaleString() })] }), _jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u66F4\u65B0\u65F6\u95F4: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: new Date(game.updatedAt).toLocaleString() })] })] })] })] }));
+    const g = game;
+    const activeRuleSet = (g.ruleSetVersions || []).find((v) => v.status === 'ACTIVE');
+    const difficulties = g.difficulties || [];
+    // Group by key, show only latest version per key
+    const latestDiffMap = new Map();
+    for (const d of difficulties) {
+        if (!latestDiffMap.has(d.key) || d.version > latestDiffMap.get(d.key).version)
+            latestDiffMap.set(d.key, d);
+    }
+    const latestDiffs = Array.from(latestDiffMap.values());
+    const contentPolicies = g.contentPolicies || [];
+    const challengePolicies = g.challengePolicies || [];
+    const link = (path, title) => openTab({ id: path, title, path });
+    return (_jsxs("div", { className: "p-6 max-w-5xl mx-auto space-y-6", children: [_jsxs("div", { className: "flex items-center justify-between", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-2xl font-bold text-[var(--sb-text-primary)]", children: game.title }), _jsx("p", { className: "text-sm text-[var(--sb-text-muted)] font-mono", children: game.slug })] }), _jsxs("div", { className: "flex gap-2", children: [_jsx(Badge, { variant: game.status === 'PUBLISHED' ? 'success' : game.status === 'ARCHIVED' ? 'default' : 'warning', children: game.status === 'PUBLISHED' ? '已发布' : game.status === 'ARCHIVED' ? '已归档' : '草稿' }), game.status === 'DRAFT' && _jsx(Button, { size: "sm", onClick: () => publishMutation.mutate(), children: "\u53D1\u5E03" }), game.status === 'PUBLISHED' && _jsx(Button, { size: "sm", variant: "danger", onClick: () => archiveMutation.mutate(), children: "\u5F52\u6863" }), game.status === 'ARCHIVED' && _jsx(Button, { size: "sm", onClick: () => publishMutation.mutate(), children: "\u91CD\u65B0\u53D1\u5E03" }), dirty && _jsx(Button, { size: "sm", onClick: () => updateMutation.mutate(), disabled: updateMutation.isPending, children: updateMutation.isPending ? '保存中...' : '保存' })] })] }), _jsxs(Card, { children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)] mb-4", children: "\u57FA\u672C\u4FE1\u606F" }), _jsxs("div", { className: "grid grid-cols-2 gap-4", children: [_jsx(Input, { label: "\u6807\u9898", value: form.title, onChange: (e) => { setForm(f => ({ ...f, title: e.target.value })); setDirty(true); } }), _jsx(Input, { label: "\u526F\u6807\u9898", value: form.subtitle, onChange: (e) => { setForm(f => ({ ...f, subtitle: e.target.value })); setDirty(true); } }), _jsx(Input, { label: "\u6392\u5E8F\u6743\u91CD", type: "number", value: form.sortOrder, onChange: (e) => { setForm(f => ({ ...f, sortOrder: e.target.value })); setDirty(true); } }), _jsx(Input, { label: "\u6765\u6E90", value: form.source, onChange: (e) => { setForm(f => ({ ...f, source: e.target.value })); setDirty(true); } }), _jsxs("div", { className: "col-span-2", children: [_jsx("label", { className: "block text-sm text-[var(--sb-text-secondary)] mb-1.5", children: "\u63CF\u8FF0" }), _jsx("textarea", { value: form.description, onChange: (e) => { setForm(f => ({ ...f, description: e.target.value })); setDirty(true); }, rows: 3, className: "w-full px-3.5 py-2.5 bg-[var(--sb-bg-muted)] border border-[var(--sb-border)] rounded-[var(--sb-radius-input)] text-[var(--sb-text-primary)] focus:outline-none focus:border-[var(--sb-primary)] resize-none" })] }), _jsx(Input, { label: "\u5C01\u9762 URL", value: form.coverUrl, onChange: (e) => { setForm(f => ({ ...f, coverUrl: e.target.value })); setDirty(true); }, className: "col-span-2" })] })] }), _jsxs(Card, { children: [_jsxs("div", { className: "flex items-center justify-between mb-4", children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)]", children: "\u89C4\u5219\u914D\u7F6E" }), _jsx(Button, { size: "sm", variant: "secondary", onClick: () => link('/rule-versions', '规则配置'), children: "\u67E5\u770B\u5168\u90E8" })] }), activeRuleSet ? (_jsxs("div", { className: "flex items-center justify-between py-3 px-4 border border-[var(--sb-border)] rounded-lg", children: [_jsxs("div", { children: [_jsx("span", { className: "text-sm font-medium text-[var(--sb-text-primary)]", children: activeRuleSet.name }), _jsxs("span", { className: "ml-2 text-xs text-[var(--sb-text-muted)]", children: ["v", activeRuleSet.version] }), _jsx(Badge, { variant: "success", className: "ml-2", children: "ACTIVE" })] }), _jsxs("div", { className: "flex items-center gap-3", children: [_jsx("span", { className: "text-xs font-mono text-[var(--sb-text-secondary)]", children: activeRuleSet.engineKey }), _jsx(Button, { size: "sm", variant: "ghost", onClick: () => link(`/rule-versions/${activeRuleSet.id}`, `规则 v${activeRuleSet.version}`), children: "\u7F16\u8F91" })] })] })) : (_jsx("p", { className: "text-sm text-[var(--sb-text-muted)]", children: "\u6682\u65E0\u6FC0\u6D3B\u7684\u89C4\u5219\u914D\u7F6E" }))] }), _jsxs(Card, { children: [_jsxs("div", { className: "flex items-center justify-between mb-4", children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)]", children: "\u96BE\u5EA6\u914D\u7F6E" }), _jsx(Button, { size: "sm", variant: "secondary", onClick: () => link('/difficulties', '难度配置'), children: "\u67E5\u770B\u5168\u90E8" })] }), latestDiffs.length > 0 ? (_jsx("div", { className: "overflow-x-auto", children: _jsxs("table", { className: "w-full text-sm", children: [_jsx("thead", { children: _jsxs("tr", { className: "border-b border-[var(--sb-border)]", children: [_jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "Key" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u6807\u7B7E" }), _jsx("th", { className: "text-center py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u7248\u672C" }), _jsx("th", { className: "text-center py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u72B6\u6001" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u9898\u5E93\u7B56\u7565" }), _jsx("th", { className: "text-left py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u6311\u6218\u7B56\u7565" }), _jsx("th", { className: "text-right py-3 px-3 text-[var(--sb-text-muted)] font-medium", children: "\u64CD\u4F5C" })] }) }), _jsx("tbody", { children: latestDiffs.map((d) => {
+                                        const cp = contentPolicies.find((p) => p.difficultyId === d.id);
+                                        const chp = challengePolicies.find((p) => p.difficultyId === d.id);
+                                        return (_jsxs("tr", { className: "border-b border-[var(--sb-border)] hover:bg-[var(--sb-bg-muted)]", children: [_jsx("td", { className: "py-3 px-3 font-mono text-xs text-[var(--sb-text-primary)]", children: d.key }), _jsx("td", { className: "py-3 px-3 text-sm text-[var(--sb-text-primary)]", children: d.label }), _jsxs("td", { className: "py-3 px-3 text-center text-[var(--sb-text-secondary)]", children: ["v", d.version] }), _jsx("td", { className: "py-3 px-3 text-center", children: _jsx(Badge, { variant: d.status === 'ACTIVE' ? 'success' : 'default', children: d.status }) }), _jsx("td", { className: "py-3 px-3", children: cp ? (_jsxs("button", { className: "text-[var(--sb-primary)] hover:underline cursor-pointer bg-transparent border-none text-xs", onClick: () => link(`/content-policies/${cp.id}`, '题库策略'), children: [cp.contentMode, "/", cp.selectionStrategy] })) : _jsx("span", { className: "text-xs text-[var(--sb-text-muted)]", children: "-" }) }), _jsx("td", { className: "py-3 px-3", children: chp ? (_jsx("button", { className: "text-[var(--sb-primary)] hover:underline cursor-pointer bg-transparent border-none text-xs", onClick: () => link(`/challenge-policies/${chp.id}`, '挑战策略'), children: chp.mode })) : _jsx("span", { className: "text-xs text-[var(--sb-text-muted)]", children: "-" }) }), _jsx("td", { className: "py-3 px-3 text-right", children: _jsx(Button, { size: "sm", variant: "ghost", onClick: () => link(`/difficulties/${d.id}`, `难度 - ${d.label}`), children: "\u7F16\u8F91" }) })] }, d.id));
+                                    }) })] }) })) : (_jsx("p", { className: "text-sm text-[var(--sb-text-muted)]", children: "\u6682\u65E0\u96BE\u5EA6\u914D\u7F6E" }))] }), _jsxs(Card, { children: [_jsx("h2", { className: "text-lg font-semibold text-[var(--sb-text-primary)] mb-4", children: "\u7EDF\u8BA1" }), _jsxs("div", { className: "grid grid-cols-2 gap-4 text-sm", children: [_jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u9898\u76EE\u6570: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: game.puzzleCount })] }), _jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u6311\u6218\u6B21\u6570: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: game.attemptCount })] }), _jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u521B\u5EFA\u65F6\u95F4: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: new Date(game.createdAt).toLocaleString() })] }), _jsxs("div", { children: [_jsx("span", { className: "text-[var(--sb-text-muted)]", children: "\u66F4\u65B0\u65F6\u95F4: " }), _jsx("span", { className: "text-[var(--sb-text-primary)]", children: new Date(game.updatedAt).toLocaleString() })] })] })] })] }));
 }
 //# sourceMappingURL=game-detail.js.map

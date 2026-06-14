@@ -11,6 +11,7 @@ interface TabStore {
         closeable?: boolean;
     }) => void;
     closeTab: (tabId: string) => void;
+    closeAllTabs: () => void;
     setActiveTab: (tabId: string) => void;
     updateTabTitle: (tabId: string, title: string) => void;
 }

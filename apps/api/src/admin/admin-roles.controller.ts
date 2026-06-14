@@ -1,15 +1,23 @@
 import {
-  Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, UseGuards, ConflictException,
+  Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post,
+  UseGuards, ConflictException, BadRequestException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../common/guards/permission.guard';
 import { RequirePermission } from '../common/decorators/permission.decorator';
 import { PrismaService } from '../database/prisma.service';
+import { Prisma } from '@prisma/client';
+import { PermissionCacheService } from '../auth/permission-cache.service';
+
+const ROLE_KEY_REGEX = /^[a-z][a-z0-9_]*$/;
 
 @Controller('admin/roles')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class AdminRolesController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private permCache: PermissionCacheService,
+  ) {}
 
   @Get()
   @RequirePermission('role:read')
@@ -33,19 +41,32 @@ export class AdminRolesController {
   @Post()
   @RequirePermission('role:assign')
   async create(@Body() body: { key: string; name: string; description?: string; permissionKeys?: string[] }) {
-    return this.prisma.role.create({
-      data: {
-        key: body.key,
-        name: body.name,
-        description: body.description ?? null,
-        isSystem: false,
-        rolePermissions: body.permissionKeys
-          ? {
-              create: await this.resolvePermissionRefs(body.permissionKeys),
-            }
-          : undefined,
-      },
-    });
+    const key = body.key?.trim();
+    if (!key || !ROLE_KEY_REGEX.test(key)) {
+      throw new BadRequestException({ error: 'invalid-key-format', message: '角色 key 必须为小写字母、数字、下划线组成' });
+    }
+
+    let permissionCreates: { permissionId: string }[] | undefined;
+    if (body.permissionKeys?.length) {
+      permissionCreates = await this.resolvePermissionRefsOrThrow(body.permissionKeys);
+    }
+
+    try {
+      return await this.prisma.role.create({
+        data: {
+          key,
+          name: body.name,
+          description: body.description ?? null,
+          isSystem: false,
+          rolePermissions: permissionCreates ? { create: permissionCreates } : undefined,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException({ error: 'role-key-taken', message: `角色 key "${key}" 已存在` });
+      }
+      throw e;
+    }
   }
 
   @Patch(':id')
@@ -68,6 +89,11 @@ export class AdminRolesController {
         where: { key: { in: body.permissionKeys } },
         select: { id: true, key: true },
       });
+      const resolvedKeys = new Set(perms.map((p) => p.key));
+      const unknownKeys = body.permissionKeys.filter((k) => !resolvedKeys.has(k));
+      if (unknownKeys.length > 0) {
+        throw new BadRequestException({ error: 'unknown-permission-keys', keys: unknownKeys });
+      }
       const targetIds = new Set(perms.map((p) => p.id));
       const existing = await this.prisma.rolePermission.findMany({
         where: { roleId: id }, select: { permissionId: true },
@@ -84,6 +110,7 @@ export class AdminRolesController {
       }
     }
     await Promise.all(ops);
+    await this.invalidateRoleUsers(id);
     return { ok: true };
   }
 
@@ -93,14 +120,28 @@ export class AdminRolesController {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new NotFoundException();
     if (role.isSystem) throw new ConflictException({ error: 'role-is-system' });
+    await this.invalidateRoleUsers(id);
     await this.prisma.role.delete({ where: { id } });
     return { ok: true };
   }
 
-  private async resolvePermissionRefs(keys: string[]) {
-    const perms = await this.prisma.permission.findMany({
-      where: { key: { in: keys } }, select: { id: true },
+  private async invalidateRoleUsers(roleId: string) {
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { roleId },
+      select: { userId: true },
     });
+    await this.permCache.invalidateMany(userRoles.map((ur) => ur.userId));
+  }
+
+  private async resolvePermissionRefsOrThrow(keys: string[]) {
+    const perms = await this.prisma.permission.findMany({
+      where: { key: { in: keys } }, select: { id: true, key: true },
+    });
+    const resolvedKeys = new Set(perms.map((p) => p.key));
+    const unknownKeys = keys.filter((k) => !resolvedKeys.has(k));
+    if (unknownKeys.length > 0) {
+      throw new BadRequestException({ error: 'unknown-permission-keys', keys: unknownKeys });
+    }
     return perms.map((p) => ({ permissionId: p.id }));
   }
 }

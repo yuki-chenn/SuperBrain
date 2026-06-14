@@ -21,7 +21,7 @@ function AdminGuard() {
     return <Navigate to="/login" />;
   }
 
-  if (!user?.permissionKeys?.some((k) => k.startsWith('user:') || k.startsWith('game:') || k.startsWith('puzzle:'))) {
+  if (!user?.permissionKeys?.some((k) => k.startsWith('user:') || k.startsWith('game:') || k.startsWith('puzzle:') || k.startsWith('role:') || k.startsWith('permission:') || k.startsWith('session:'))) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold text-[var(--sb-text-primary)]">403 Forbidden</h1>

@@ -46,6 +46,7 @@ export async function apiRequest<T>(
   const token = useAuthStore.getState().accessToken;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'X-Client': 'admin',
     ...(options.headers as Record<string, string>),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;

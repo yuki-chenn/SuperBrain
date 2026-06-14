@@ -3,9 +3,15 @@ import { Response } from 'express';
 
 @Injectable()
 export class CookieService {
-  private getRefreshCookieOptions() {
+  private getRefreshCookieName(client?: string): string {
+    return client === 'admin' ? 'admin_refresh_token' : 'refresh_token';
+  }
+
+  private getRefreshCookieOptions(client?: string) {
     const isProd = process.env.NODE_ENV === 'production';
-    const ttlDays = parseInt(process.env.JWT_REFRESH_TTL_DAYS || '30', 10);
+    const ttlDays = client === 'admin'
+      ? parseInt(process.env.ADMIN_REFRESH_TTL_DAYS || '7', 10)
+      : parseInt(process.env.GAME_REFRESH_TTL_DAYS || '14', 10);
 
     return {
       httpOnly: true,
@@ -16,11 +22,11 @@ export class CookieService {
     };
   }
 
-  setRefreshTokenCookie(res: Response, token: string) {
-    res.cookie('refresh_token', token, this.getRefreshCookieOptions());
+  setRefreshTokenCookie(res: Response, token: string, client?: string) {
+    res.cookie(this.getRefreshCookieName(client), token, this.getRefreshCookieOptions(client));
   }
 
-  clearRefreshTokenCookie(res: Response) {
-    res.clearCookie('refresh_token', { path: '/api/auth' });
+  clearRefreshTokenCookie(res: Response, client?: string) {
+    res.clearCookie(this.getRefreshCookieName(client), { path: '/api/auth' });
   }
 }

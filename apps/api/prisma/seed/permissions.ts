@@ -73,6 +73,15 @@ export const PERMISSION_CATALOG: ReadonlyArray<{
 
   // Database browser
   { key: 'database:read', resource: 'database', action: 'read', description: '查看数据库表与数据' },
+
+  // Permission management
+  { key: 'permission:create', resource: 'permission', action: 'create', description: '创建新权限' },
+  { key: 'permission:update', resource: 'permission', action: 'update', description: '编辑权限信息' },
+  { key: 'permission:delete', resource: 'permission', action: 'delete', description: '删除权限' },
+
+  // Sessions
+  { key: 'session:read', resource: 'session', action: 'read', description: '查看认证会话列表与详情' },
+  { key: 'session:revoke', resource: 'session', action: 'revoke', description: '撤销认证会话' },
 ];
 
 export async function seedPermissions(prisma: PrismaClient): Promise<void> {

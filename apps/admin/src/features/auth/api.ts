@@ -15,6 +15,7 @@ export async function refreshApi(): Promise<{ user: User; accessToken: string }>
   const res = await fetch('/api/auth/refresh', {
     method: 'POST',
     credentials: 'include',
+    headers: { 'X-Client': 'admin' },
   });
   if (!res.ok) {
     // Silently handle 401 - expected when no valid session exists

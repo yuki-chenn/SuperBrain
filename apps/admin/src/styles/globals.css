@@ -144,3 +144,29 @@ body {
   background: var(--sb-border-strong);
   border-radius: 3px;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 200ms ease-out;
+}
+
+/* Sticky table columns: cover content scrolling underneath */
+th.sticky, td.sticky {
+  box-shadow: 3px 0 0 0 var(--sb-bg-muted), -3px 0 0 0 var(--sb-bg-muted);
+}
+thead th.sticky {
+  background-color: var(--sb-bg-muted);
+}
+tbody td.sticky {
+  background-color: var(--sb-bg-elevated);
+}
+/* Hover: all cells in the row get hover bg, sticky cells included */
+tbody tr:hover td {
+  background-color: var(--sb-bg-muted);
+}
+tbody tr:hover td.sticky {
+  background-color: var(--sb-bg-muted);
+}

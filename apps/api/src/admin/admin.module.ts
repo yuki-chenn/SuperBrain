@@ -16,6 +16,8 @@ import { AdminReviewTasksController } from './admin-review-tasks.controller';
 import { AdminScoreRecordsController } from './admin-score-records.controller';
 import { AdminDatabaseController } from './admin-database.controller';
 import { AdminDatabaseService } from './admin-database.service';
+import { AdminSessionsController } from './admin-sessions.controller';
+import { AdminSessionsService } from './admin-sessions.service';
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 
 @Module({
@@ -24,9 +26,9 @@ import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
     AdminUsersController, AdminRolesController, AdminPermissionsController,
     AdminAuditController, AdminGamesController, AdminPuzzlesController,
     AdminReviewTasksController, AdminScoreRecordsController,
-    AdminDatabaseController,
+    AdminDatabaseController, AdminSessionsController,
   ],
-  providers: [AuditService, AdminUsersService, AdminGamesService, AdminPuzzlesService, AdminDatabaseService],
+  providers: [AuditService, AdminUsersService, AdminGamesService, AdminPuzzlesService, AdminDatabaseService, AdminSessionsService],
   exports: [AuditService],
 })
 export class AdminModule {}

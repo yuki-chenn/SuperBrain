@@ -11,6 +11,7 @@ import { AuthSessionService } from './auth-session.service';
 import { CookieService } from './cookie.service';
 import { JwtStrategy } from './jwt.strategy';
 import { PermissionService } from './permission.service';
+import { PermissionCacheService } from './permission-cache.service';
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { PermissionService } from './permission.service';
     CookieService,
     JwtStrategy,
     PermissionService,
+    PermissionCacheService,
   ],
-  exports: [AuthService, PermissionService, AuthSessionService],
+  exports: [AuthService, PermissionService, PermissionCacheService, AuthSessionService],
 })
 export class AuthModule {}

@@ -36,6 +36,11 @@ export const useTabStore = create()(persist((set, get) => ({
         }
         set({ tabs: remaining, activeTabId: newActiveId });
     },
+    closeAllTabs: () => {
+        const { tabs } = get();
+        const remaining = tabs.filter((t) => !t.closeable);
+        set({ tabs: remaining.length > 0 ? remaining : [DEFAULT_TAB], activeTabId: remaining.length > 0 ? remaining[0].id : DEFAULT_TAB.id });
+    },
     setActiveTab: (tabId) => {
         set({ activeTabId: tabId });
     },

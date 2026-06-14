@@ -19,6 +19,16 @@ export class AdminPuzzlesController {
     });
   }
 
+  @Get('versions')
+  @RequirePermission('puzzle:read')
+  listVersions(@Query() q: any) {
+    return this.svc.listVersions({
+      gameId: q.gameId, status: q.status,
+      page: q.page ? +q.page : undefined,
+      pageSize: q.pageSize ? +q.pageSize : undefined,
+    });
+  }
+
   @Get(':id')
   @RequirePermission('puzzle:read')
   detail(@Param('id') id: string) { return this.svc.detail(id); }
