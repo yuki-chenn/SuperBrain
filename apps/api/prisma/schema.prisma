@@ -295,6 +295,7 @@ model User {
 model AuthSession {
   id                   String            @id @default(cuid())
   userId               String
+  client               String?           // "admin" | "game"
   refreshTokenHash     String            @unique
   refreshTokenFamilyId String
   status               AuthSessionStatus @default(ACTIVE)
@@ -310,6 +311,7 @@ model AuthSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+  @@index([client])
   @@index([refreshTokenFamilyId])
   @@index([expiresAt])
   @@index([status, expiresAt])

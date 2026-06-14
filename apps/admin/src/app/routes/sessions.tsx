@@ -75,6 +75,12 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}`}>{s.label}</span>;
 }
 
+function ClientBadge({ client }: { client: string | null }) {
+  if (client === 'admin') return <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-500/15 text-blue-400">Admin</span>;
+  if (client === 'game') return <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/15 text-emerald-400">Game</span>;
+  return <span className="text-xs text-[var(--sb-text-muted)]">-</span>;
+}
+
 function isExpiringSoon(expiresAt: string): boolean {
   return new Date(expiresAt).getTime() - Date.now() < 24 * 60 * 60 * 1000;
 }
@@ -102,7 +108,7 @@ function CopyBtn({ text }: { text: string }) {
 
 // ─── Column widths ───────────────────────────────────────────────────────────
 const LW = { session: 150, user: 180, status: 90 };
-const MW = { device: 160, ip: 130, family: 150, expires: 170, lastUsed: 170, created: 170, revoked: 200 };
+const MW = { client: 90, device: 160, ip: 130, family: 150, expires: 170, lastUsed: 170, created: 170, revoked: 200 };
 const RW = 120; // actions
 const TOTAL_W = LW.session + LW.user + LW.status + Object.values(MW).reduce((a, b) => a + b, 0) + RW;
 
@@ -257,6 +263,11 @@ export default function SessionsPage() {
             <option value="ROTATED">Rotated</option>
             <option value="COMPROMISED">Compromised</option>
           </select>
+          <select className="rounded-lg border px-3 py-2 text-sm bg-[var(--sb-bg-elevated)] border-[var(--sb-border)] text-[var(--sb-text-primary)]" value={filters.client || ''} onChange={(e) => setFilter('client', e.target.value)}>
+            <option value="">所有端</option>
+            <option value="admin">Admin</option>
+            <option value="game">Game</option>
+          </select>
           <select className="rounded-lg border px-3 py-2 text-sm bg-[var(--sb-bg-elevated)] border-[var(--sb-border)] text-[var(--sb-text-primary)]" value={filters.special || ''} onChange={(e) => setFilter('special', e.target.value)}>
             <option value="">快速筛选</option>
             <option value="expiring-soon">即将过期 (24h)</option>
@@ -277,6 +288,7 @@ export default function SessionsPage() {
               <col style={{ width: LW.session }} />
               <col style={{ width: LW.user }} />
               <col style={{ width: LW.status }} />
+              <col style={{ width: MW.client }} />
               <col style={{ width: MW.device }} />
               <col style={{ width: MW.ip }} />
               <col style={{ width: MW.family }} />
@@ -291,6 +303,7 @@ export default function SessionsPage() {
                 <th className={`${thCls} sticky left-0 z-30`}>Session</th>
                 <th className={`${thCls} sticky z-30`} style={{ left: LW.session }}>User</th>
                 <th className={`${thCls} sticky z-30`} style={{ left: LW.session + LW.user }}>Status</th>
+                <th className={thCls}>Client</th>
                 <th className={thCls}>Device</th>
                 <th className={thCls}>IP Address</th>
                 <th className={thCls}>Token Family</th>
@@ -303,11 +316,11 @@ export default function SessionsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={11} className="px-3 py-8 text-center text-[var(--sb-text-muted)]">加载中...</td></tr>
+                <tr><td colSpan={12} className="px-3 py-8 text-center text-[var(--sb-text-muted)]">加载中...</td></tr>
               ) : error ? (
-                <tr><td colSpan={11} className="px-3 py-8 text-center text-red-400">加载失败，请重试</td></tr>
+                <tr><td colSpan={12} className="px-3 py-8 text-center text-red-400">加载失败，请重试</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={11} className="px-3 py-8 text-center text-[var(--sb-text-muted)]">暂无会话数据</td></tr>
+                <tr><td colSpan={12} className="px-3 py-8 text-center text-[var(--sb-text-muted)]">暂无会话数据</td></tr>
               ) : items.map((s) => {
                 const ua = parseUA(s.userAgent);
                 const canRevoke = s.status === 'ACTIVE';
@@ -331,6 +344,10 @@ export default function SessionsPage() {
                     {/* Left sticky: Status */}
                     <td className={`${tdCls} sticky z-20`} style={{ left: LW.session + LW.user }}>
                       <StatusBadge status={s.status} />
+                    </td>
+                    {/* Client */}
+                    <td className={tdCls}>
+                      <ClientBadge client={s.client} />
                     </td>
                     {/* Scrollable middle columns */}
                     <td className={`${tdCls} text-[var(--sb-text-secondary)] text-xs whitespace-nowrap`}>{ua.browser} / {ua.os}</td>
@@ -475,6 +492,7 @@ function SessionDetailPanel({ detail, onRevoke, onRevokeFamily }: {
         <InfoRow label="ID" value={<span className="inline-flex items-center"><span className="font-mono">{detail.id}</span><CopyBtn text={detail.id} /></span>} />
         <InfoRow label="User" value={<div><div>{detail.user?.username || detail.user?.email || '-'}</div><div className="flex items-center"><span className="text-xs text-[var(--sb-text-muted)] font-mono">{detail.userId}</span><CopyBtn text={detail.userId} /></div></div>} />
         <InfoRow label="Status" value={<StatusBadge status={detail.status} />} />
+        <InfoRow label="Client" value={<ClientBadge client={detail.client} />} />
         <InfoRow label="Created" value={formatTime(detail.createdAt)} />
         <InfoRow label="Expires" value={<span className={isExpiringSoon(detail.expiresAt) && detail.status === 'ACTIVE' ? 'text-orange-400' : ''}>{formatTime(detail.expiresAt)}{isExpiringSoon(detail.expiresAt) && detail.status === 'ACTIVE' && ' ⚠ 即将过期'}</span>} />
         <InfoRow label="Last Used" value={detail.lastUsedAt ? formatTime(detail.lastUsedAt) : 'Never used'} />

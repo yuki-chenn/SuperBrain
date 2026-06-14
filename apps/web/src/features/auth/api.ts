@@ -26,6 +26,7 @@ export async function refreshApi(): Promise<{ user: User; accessToken: string }>
   const res = await fetch('/api/auth/refresh', {
     method: 'POST',
     credentials: 'include',
+    headers: { 'X-Client': 'game' },
   });
   if (!res.ok) throw new Error('Refresh failed');
   return res.json();

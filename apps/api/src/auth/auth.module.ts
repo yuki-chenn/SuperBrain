@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from '../database/prisma.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
@@ -22,7 +21,6 @@ import { PermissionCacheService } from './permission-cache.service';
       secret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret-minimum-16-chars',
       signOptions: { expiresIn: (process.env.JWT_ACCESS_TTL || '15m') as any },
     }),
-    ThrottlerModule.forRoot([{ name: 'login', ttl: 60_000, limit: 5 }]),
   ],
   controllers: [AuthController],
   providers: [

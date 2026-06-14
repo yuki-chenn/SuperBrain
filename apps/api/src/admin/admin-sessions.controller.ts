@@ -22,6 +22,7 @@ export class AdminSessionsController {
   @RequirePermission('session:read')
   list(
     @Query('status') status?: string,
+    @Query('client') client?: string,
     @Query('userId') userId?: string,
     @Query('sessionId') sessionId?: string,
     @Query('familyId') familyId?: string,
@@ -37,7 +38,7 @@ export class AdminSessionsController {
     @Query('sortDir') sortDir?: string,
   ) {
     return this.sessions.list({
-      status, userId, sessionId, familyId, ipAddress,
+      status, client, userId, sessionId, familyId, ipAddress,
       createdFrom, createdTo, expiresFrom, expiresTo, special,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,

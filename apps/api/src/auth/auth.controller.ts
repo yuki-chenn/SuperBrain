@@ -27,6 +27,7 @@ export class AuthController {
     return {
       userAgent: req.headers['user-agent'],
       ipAddress: req.ip,
+      client: req.headers['x-client'] as string | undefined,
     };
   }
 
@@ -42,7 +43,7 @@ export class AuthController {
     return { user: result.user, accessToken: result.accessToken };
   }
 
-  @Throttle({ login: { ttl: 60_000, limit: 5 } })
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('login')
   async login(
     @Body(new ZodPipe(LoginSchema)) body: { emailOrUsername: string; password: string },

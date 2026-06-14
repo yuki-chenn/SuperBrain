@@ -9,6 +9,7 @@ export interface AdminSessionListItem {
     id: string;
     userId: string;
     user: AdminSessionUser | null;
+    client: string | null;
     status: string;
     userAgent: string | null;
     ipAddress: string | null;
@@ -24,6 +25,7 @@ export interface AdminSessionDetail {
     id: string;
     userId: string;
     user: AdminSessionUser | null;
+    client: string | null;
     status: string;
     userAgent: string | null;
     ipAddress: string | null;
@@ -44,6 +46,7 @@ export interface AdminSessionStats {
 }
 export interface AdminSessionListParams {
     status?: string;
+    client?: string;
     userId?: string;
     sessionId?: string;
     familyId?: string;

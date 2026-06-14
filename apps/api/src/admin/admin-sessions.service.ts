@@ -27,6 +27,7 @@ export class AdminSessionsService {
 
   async list(params: {
     status?: string;
+    client?: string;
     userId?: string;
     sessionId?: string;
     familyId?: string;
@@ -49,6 +50,9 @@ export class AdminSessionsService {
 
     if (params.status) {
       where.status = params.status as AuthSessionStatus;
+    }
+    if (params.client) {
+      where.client = params.client;
     }
     if (params.userId) {
       where.userId = params.userId;
@@ -131,6 +135,7 @@ export class AdminSessionsService {
       id: session.id,
       userId: session.userId,
       user: session.user,
+      client: session.client || null,
       status: session.status,
       userAgent: session.userAgent,
       ipAddress: session.ipAddress,
@@ -182,6 +187,7 @@ export class AdminSessionsService {
       id: session.id,
       userId: session.userId,
       user: session.user,
+      client: session.client || null,
       status: session.status,
       userAgent: session.userAgent,
       ipAddress: session.ipAddress,

@@ -5,9 +5,10 @@ import { TokenService } from './token.service';
 
 const REUSE_GRACE_PERIOD_MS = 30_000;
 
-interface SessionContext {
+export interface SessionContext {
   userAgent?: string;
   ipAddress?: string;
+  client?: string; // "admin" | "game"
 }
 
 @Injectable()
@@ -26,6 +27,7 @@ export class AuthSessionService {
     const session = await this.prisma.authSession.create({
       data: {
         userId,
+        client: context?.client || null,
         refreshTokenHash,
         refreshTokenFamilyId: randomUUID(),
         status: 'ACTIVE',
@@ -50,6 +52,7 @@ export class AuthSessionService {
     const newSession = await this.prisma.authSession.create({
       data: {
         userId,
+        client: context?.client || previousSession.client || null,
         refreshTokenHash,
         refreshTokenFamilyId: previousSession.refreshTokenFamilyId,
         status: 'ACTIVE',
